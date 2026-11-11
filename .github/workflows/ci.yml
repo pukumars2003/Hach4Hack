@@ -1,0 +1,63 @@
+name: CI - Concurrency & Invariants Suite
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    name: Run Concurrency Race & API Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: team_formation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Schema Migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/team_formation
+        run: npm run db:migrate --workspace=server
+
+      - name: Run Full API Test Suite (25+ Invariants)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/team_formation
+          NODE_ENV: test
+        run: npm run test --workspace=server
+
+      - name: Run 250-Client Simultaneous Last-Seat Race Test
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/team_formation
+          NODE_ENV: test
+        run: npm run test:race --workspace=server
+
+      - name: Build Production Client
+        run: npm run build --workspace=client
+
+      - name: Build Production Server
+        run: npm run build --workspace=server
