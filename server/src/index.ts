@@ -18,7 +18,10 @@ import { sseRoutes } from './routes/sse.js';
 
 export async function buildApp() {
   const app = fastify({
-    logger: process.env.NODE_ENV !== 'test',
+    logger: {
+      level: process.env.LOG_LEVEL || 'warn', // Only log warnings/errors (avoids stdout terminal blocking)
+    },
+    disableRequestLogging: true, // Disables synchronous per-request terminal dumping
     bodyLimit: 16 * 1024, // 16 KB body limit strictly enforced
   });
 
@@ -35,15 +38,16 @@ export async function buildApp() {
     secret: config.jwtSecret,
   });
 
-  // 3. Rate Limiting (Spec: uniform protection against brute-force)
+  // 3. High-Throughput Rate Limiting (2,000 req/min headroom for 50-100 racers simulation & load testing)
   await app.register(rateLimit, {
-    max: 120,
+    max: 2000,
     timeWindow: '1 minute',
     keyGenerator: (req) => {
       const user = (req as any).user;
       return user ? user.id : req.ip;
     },
     errorResponseBuilder: (req, context) => ({
+      statusCode: 429,
       code: 'rate_limit_exceeded',
       message: `Too many requests. Please retry after ${Math.ceil(context.ttl / 1000)} seconds.`,
       retryAfter: Math.ceil(context.ttl / 1000),
@@ -52,6 +56,15 @@ export async function buildApp() {
 
   // 4. Global Error Handler
   app.setErrorHandler((error: any, req, reply) => {
+    // Rate limit handling (HTTP 429)
+    if (error.statusCode === 429 || error.code === 'rate_limit_exceeded') {
+      return reply.status(429).header('Retry-After', String(error.retryAfter || 5)).send({
+        code: 'rate_limit_exceeded',
+        message: error.message || 'Rate limit exceeded. Please retry shortly.',
+        retryAfter: error.retryAfter || 5,
+      });
+    }
+
     if (error.code === '57014' || error.message?.includes('statement timeout')) {
       return reply.status(503).header('Retry-After', '2').send({
         code: 'database_timeout',

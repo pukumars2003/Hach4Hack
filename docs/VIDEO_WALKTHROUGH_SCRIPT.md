@@ -95,3 +95,4 @@
 > "The entire stack is packaged into a single `docker-compose.yml` for one-command local setup, and fully tested in GitHub Actions CI with over 25 integration, race, and chaos tests.
 > 
 > Thank you for reviewing our submission. All documentation, tests, and code are open in the GitHub repository!"
+

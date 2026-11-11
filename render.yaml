@@ -25,3 +25,4 @@ databases:
     plan: free
     databaseName: team_formation
     user: postgres
+

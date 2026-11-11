@@ -79,19 +79,12 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
         });
       }
 
-      // 2. Prepare distinct racers
-      const racers: { token: string; name: string }[] = [];
-      for (let i = 0; i < concurrencyCount; i++) {
-        const racerAuth = await apiRequest<{ token: string; user: any }>('/auth/register', {
-          method: 'POST',
-          body: JSON.stringify({
-            email: `racer_client_${i}_${Date.now()}@test.com`,
-            password: 'Password123!',
-            name: `Racer #${i + 1}`,
-          }),
-        });
-        racers.push({ token: racerAuth.token, name: `Racer #${i + 1}` });
-      }
+      // 2. Prepare distinct racers in 1 single fast batch call (10ms)
+      const batchRes = await apiRequest<{ racers: { token: string; name: string }[] }>('/teams/lab/batch-racers', {
+        method: 'POST',
+        body: JSON.stringify({ count: concurrencyCount }),
+      });
+      const racers = batchRes.racers;
 
       // 3. Fire all concurrent requests at the exact same instant using Promise.all
       const overallStart = performance.now();

@@ -25,6 +25,38 @@ const joinByCodeSchema = z.object({
 });
 
 export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
+  // POST /api/teams/lab/batch-racers (Fast racer batch setup for Concurrency Lab)
+  app.post('/lab/batch-racers', async (req, reply) => {
+    const { count = 50 } = req.body as { count?: number };
+    const racerCount = Math.min(Math.max(1, count), 100);
+    const ts = Date.now();
+
+    const emails: string[] = [];
+    const names: string[] = [];
+    const racers: { id: string; name: string; token: string }[] = [];
+
+    for (let i = 0; i < racerCount; i++) {
+      emails.push(`lab_racer_${i}_${ts}@hackathon.org`);
+      names.push(`Racer #${i + 1}`);
+    }
+
+    // Batch insert users in 1 round trip
+    const inserted = await query(
+      `INSERT INTO users (email, password_hash, name)
+       SELECT email, 'scrypt$hash', name
+       FROM UNNEST($1::varchar[], $2::varchar[]) AS x(email, name)
+       RETURNING id, name, email`,
+      [emails, names]
+    );
+
+    for (const u of inserted.rows) {
+      const token = app.jwt.sign({ id: u.id, email: u.email, name: u.name });
+      racers.push({ id: u.id, name: u.name, token });
+    }
+
+    return reply.send({ racers });
+  });
+
   // GET /api/teams (Board with Keyset Pagination + 1s Single-Flight Cache)
   app.get('/', async (req, reply) => {
     const qSchema = z.object({
