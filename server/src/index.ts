@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
@@ -78,6 +80,53 @@ export async function buildApp() {
       code: error.code || 'internal_error',
       message: error.message || 'An internal server error occurred.',
     });
+  });
+
+  // Root Route: Serves React SPA when requested from browser, or JSON status info
+  app.get('/', async (req, reply) => {
+    const acceptsHtml = req.headers.accept?.includes('text/html');
+    const p1 = path.resolve(process.cwd(), '../client/dist/index.html');
+    const p2 = path.resolve(process.cwd(), 'client/dist/index.html');
+    const indexPath = fs.existsSync(p1) ? p1 : fs.existsSync(p2) ? p2 : null;
+
+    if (acceptsHtml && indexPath) {
+      const html = fs.readFileSync(indexPath, 'utf-8');
+      return reply.type('text/html').send(html);
+    }
+
+    return reply.send({
+      service: 'Race-Proof Team Formation Platform (PS1)',
+      version: '1.0.0',
+      status: 'operational',
+      health: '/health',
+      endpoints: {
+        hackathons: '/api/hackathons',
+        teamsBoard: '/api/teams',
+        auth: '/api/auth',
+        requests: '/api/requests',
+        suggestions: '/api/teams/:id/suggestions',
+        audit: '/api/audit',
+        realtimeStream: '/api/realtime/stream',
+      },
+      clientDevUrl: 'http://localhost:5173',
+      message: 'Backend API is active. Open http://localhost:5173 for Vite dev or browse this server.',
+    });
+  });
+
+  // Static Assets handler (serves React build chunks)
+  app.get('/assets/*', async (req, reply) => {
+    const assetRel = (req.params as any)['*'];
+    const p1 = path.resolve(process.cwd(), '../client/dist/assets', assetRel);
+    const p2 = path.resolve(process.cwd(), 'client/dist/assets', assetRel);
+    const assetPath = fs.existsSync(p1) ? p1 : fs.existsSync(p2) ? p2 : null;
+
+    if (assetPath) {
+      if (assetPath.endsWith('.js')) reply.type('application/javascript');
+      else if (assetPath.endsWith('.css')) reply.type('text/css');
+      else if (assetPath.endsWith('.svg')) reply.type('image/svg+xml');
+      return reply.send(fs.createReadStream(assetPath));
+    }
+    return reply.status(404).send({ error: 'Asset not found' });
   });
 
   // 5. Health & Metrics Endpoint
