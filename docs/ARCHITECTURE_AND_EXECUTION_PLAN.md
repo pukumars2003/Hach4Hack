@@ -322,3 +322,4 @@ gantt
 - [ ] **Load Test Report**: k6 benchmark artifact showing p95 latency under 500 VUs.
 - [ ] **1-Page Design Doc**: Concise trade-off defense and architecture rationale.
 - [ ] **5-Minute Video Walkthrough**: Showing the live concurrency race, load test, and UI flow.
+

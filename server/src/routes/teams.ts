@@ -785,3 +785,4 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
     }
   });
 };
+

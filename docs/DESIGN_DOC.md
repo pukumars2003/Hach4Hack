@@ -57,3 +57,4 @@ RETURNING member_count;
 2. **Vector Similarity Matching (`pgvector`)**: Replace heuristic Jaccard scoring with dense embeddings for candidate bios and project briefs to discover non-obvious skill alignments.
 3. **Consensus Team Expansion Protocol**: A multi-member in-app voting mechanism allowing teams to collectively vote to expand capacity beyond standard thresholds.
 4. **Passkey (WebAuthn) Passwordless Authentication**: FIDO2 hardware-backed authentication replacing passwords for zero-trust login.
+

@@ -124,3 +124,4 @@ export const api = {
   getSuggestions: (teamId: string) =>
     apiRequest<{ teamId: string; suggestions: Suggestion[] }>(`/teams/${teamId}/suggestions`),
 };
+

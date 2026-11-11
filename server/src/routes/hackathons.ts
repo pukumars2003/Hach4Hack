@@ -44,3 +44,4 @@ export const hackathonRoutes: FastifyPluginAsync = async (app: FastifyInstance) 
     return reply.send(result.rows[0]);
   });
 };
+

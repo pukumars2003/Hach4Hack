@@ -87,3 +87,4 @@ export interface Suggestion {
     interests: { score: number; reason: string };
   };
 }
+

@@ -27,3 +27,4 @@ export default function () {
 
   sleep(0.05); // Rapid browsing simulation
 }
+

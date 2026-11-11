@@ -268,3 +268,4 @@ export const requestRoutes: FastifyPluginAsync = async (app: FastifyInstance) =>
     return reply.send({ success: true, message: 'Join request cancelled.' });
   });
 };
+

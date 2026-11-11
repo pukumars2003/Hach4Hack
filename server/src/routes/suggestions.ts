@@ -98,3 +98,4 @@ export const suggestionRoutes: FastifyPluginAsync = async (app: FastifyInstance)
     });
   });
 };
+

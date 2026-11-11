@@ -141,3 +141,4 @@ export const authRoutes: FastPluginAsync = async (app: FastifyInstance) => {
   });
 };
 type FastPluginAsync = FastifyPluginAsync;
+

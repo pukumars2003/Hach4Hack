@@ -143,3 +143,4 @@ if (process.argv[1].endsWith('benchmark.ts') || process.argv[1].endsWith('benchm
       process.exit(1);
     });
 }
+

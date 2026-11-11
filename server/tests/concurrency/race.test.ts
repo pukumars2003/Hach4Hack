@@ -228,3 +228,4 @@ describe('Race-Proof Concurrency Tests: 50 to 250 Simultaneous Joins for 1 Seat'
     expect(counts).toContain(1); // The losing team reverted back to 1 member!
   });
 });
+

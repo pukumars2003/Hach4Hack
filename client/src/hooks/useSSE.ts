@@ -39,3 +39,4 @@ export function useSSE(options: {
     };
   }, [hackathonId, teamId, onEvent]);
 }
+

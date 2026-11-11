@@ -61,3 +61,4 @@ jobs:
 
       - name: Build Production Server
         run: npm run build --workspace=server
+

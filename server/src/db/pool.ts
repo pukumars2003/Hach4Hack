@@ -72,3 +72,4 @@ export function createDedicatedClient(): pg.Client {
     connectionString: config.database.connectionString,
   });
 }
+

@@ -4,6 +4,7 @@ import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import { config } from './config.js';
 import { pool, query } from './db/pool.js';
+import { runMigrations } from './db/migrate.js';
 import { realtimeHub } from './realtime/sse.js';
 import { authRoutes } from './routes/auth.js';
 import { hackathonRoutes } from './routes/hackathons.js';
@@ -49,7 +50,6 @@ export async function buildApp() {
 
   // 4. Global Error Handler
   app.setErrorHandler((error: any, req, reply) => {
-    // PostgreSQL Timeout errors
     if (error.code === '57014' || error.message?.includes('statement timeout')) {
       return reply.status(503).header('Retry-After', '2').send({
         code: 'database_timeout',
@@ -57,7 +57,6 @@ export async function buildApp() {
       });
     }
 
-    // PostgreSQL Deadlock detected
     if (error.code === '40P01') {
       return reply.status(503).header('Retry-After', '1').send({
         code: 'deadlock_retry',
@@ -65,7 +64,6 @@ export async function buildApp() {
       });
     }
 
-    // Schema Validation errors
     if (error.validation) {
       return reply.status(400).send({
         code: 'validation_error',
@@ -129,6 +127,13 @@ export async function startServer() {
   const app = await buildApp();
 
   try {
+    // Auto-run schema migrations to ensure database tables are created
+    try {
+      await runMigrations();
+    } catch (migErr: any) {
+      console.warn('[Startup] Migration notice:', migErr.message);
+    }
+
     // Start SSE listener
     await realtimeHub.startListener();
 

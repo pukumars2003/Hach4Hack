@@ -283,3 +283,4 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
     </div>
   );
 }
+

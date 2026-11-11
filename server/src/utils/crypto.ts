@@ -92,3 +92,4 @@ export async function verifyPassword(password: string, storedHash: string): Prom
 // Precomputed password hash for "Hackathon2026!" so seeding 50k users takes < 2 seconds
 export const PRECOMPUTED_SEED_PASSWORD_HASH = 
   'scrypt$d3a1f9e2b4c6e80a$b7a19283746501928374650192837465b7a19283746501928374650192837465b7a19283746501928374650192837465b7a19283746501928374650192837465';
+

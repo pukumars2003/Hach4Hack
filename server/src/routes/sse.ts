@@ -46,3 +46,4 @@ export const sseRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
     return new Promise(() => {});
   });
 };
+
