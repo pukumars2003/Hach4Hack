@@ -8,3 +8,6 @@ build/
 coverage/
 .turbo
 
+
+# Load test token cache
+scripts/tokens.json

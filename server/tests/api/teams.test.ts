@@ -20,13 +20,13 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
     app = await buildApp();
     await app.ready();
 
-    // Setup Hackathon
-    await pool.query('DELETE FROM hackathons WHERE slug = $1', ['full-api-test-hackathon']);
+    // Setup Hackathon with unique run slug
+    const runId = Date.now();
     const hRes = await pool.query(
       `INSERT INTO hackathons (name, slug, min_team_size, max_team_size, is_active)
        VALUES ($1, $2, 2, 4, true)
        RETURNING id`,
-      ['Full API Test Hackathon', 'full-api-test-hackathon']
+      [`Full API Test Hackathon ${runId}`, `full-api-test-hackathon-${runId}`]
     );
     hackathonId = hRes.rows[0].id;
 

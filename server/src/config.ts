@@ -15,9 +15,9 @@ export const config = {
   database: {
     connectionString:
       process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/team_formation',
-    max: parseInt(process.env.PG_POOL_MAX || '50', 10),
+    max: parseInt(process.env.PG_POOL_MAX || '100', 10),
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: 15000,
   },
   rateLimits: {
     maxRedeemPerMinute: 5,

@@ -42,11 +42,19 @@ export async function query<T extends pg.QueryResultRow = any>(
 export async function withTransaction<T>(
   callback: (client: pg.PoolClient) => Promise<T>
 ): Promise<T> {
-  const client = await pool.connect();
+  let client: pg.PoolClient;
+  try {
+    client = await pool.connect();
+  } catch (err: any) {
+    // Pool exhaustion or connection timeout — surface as 503, not 500
+    const wrapped = new Error('Service temporarily at capacity, please retry');
+    (wrapped as any).statusCode = 503;
+    throw wrapped;
+  }
   try {
     await client.query('BEGIN;');
-    await client.query('SET LOCAL lock_timeout = 3000;');
-    await client.query('SET LOCAL statement_timeout = 5000;');
+    await client.query('SET LOCAL lock_timeout = 5000;');
+    await client.query('SET LOCAL statement_timeout = 10000;');
 
     const result = await callback(client);
 

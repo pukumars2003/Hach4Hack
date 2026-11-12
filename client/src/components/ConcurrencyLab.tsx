@@ -186,11 +186,10 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
           <button
             onClick={runRaceSimulation}
             disabled={isRunning}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg ${
-              isRunning
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg ${isRunning
                 ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
                 : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20 active:scale-95'
-            }`}
+              }`}
           >
             {isRunning ? (
               <>
@@ -257,11 +256,10 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
             {results.map((r) => (
               <div
                 key={r.id}
-                className={`p-2 rounded-lg text-center text-xs font-mono transition-all border ${
-                  r.status === 200
+                className={`p-2 rounded-lg text-center text-xs font-mono transition-all border ${r.status === 200
                     ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold scale-105 shadow-md shadow-emerald-500/30 ring-2 ring-emerald-500'
                     : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
-                }`}
+                  }`}
               >
                 <div className="truncate text-[10px] opacity-75">{r.name}</div>
                 <div className={`mt-0.5 font-bold ${r.status === 200 ? 'text-emerald-400' : 'text-amber-400'}`}>

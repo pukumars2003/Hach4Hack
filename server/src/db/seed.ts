@@ -77,14 +77,21 @@ export async function seedDatabase(options: { userCount?: number; teamCount?: nu
            timezone_offset_minutes int,
            discovery_enabled boolean
          )
+         ON CONFLICT (email) DO NOTHING
          RETURNING id`,
         [JSON.stringify(userObjects)]
       );
 
-      for (const row of userInsert.rows) {
+      // Always fetch existing IDs (handles both fresh inserts and ON CONFLICT skips)
+      const emails = userObjects.map((u: any) => u.email);
+      const existing = await pool.query(
+        `SELECT id FROM users WHERE email = ANY($1::text[])`,
+        [emails]
+      );
+      for (const row of existing.rows) {
         allUserIds.push(row.id);
       }
-      process.stdout.write(`\r[Seed] Inserted ${allUserIds.length} / ${userCount} users...`);
+      process.stdout.write(`\r[Seed] Processed ${Math.min(c + currentChunk, userCount)} / ${userCount} users...`);
     }
     console.log('\n[Seed] Users successfully inserted.');
 
@@ -122,6 +129,7 @@ export async function seedDatabase(options: { userCount?: number; teamCount?: nu
            needed_skills text[],
            leader_id uuid
          )
+         ON CONFLICT DO NOTHING
          RETURNING id, leader_id`,
         [JSON.stringify(teamObjects)]
       );
@@ -134,17 +142,20 @@ export async function seedDatabase(options: { userCount?: number; teamCount?: nu
         role: 'leader',
       }));
 
-      await pool.query(
-        `INSERT INTO team_members (team_id, user_id, hackathon_id, role)
-         SELECT team_id, user_id, hackathon_id, role
-         FROM jsonb_to_recordset($1::jsonb) AS x(
-           team_id uuid,
-           user_id uuid,
-           hackathon_id uuid,
-           role varchar
-         )`,
-        [JSON.stringify(memberObjects)]
-      );
+      if (memberObjects.length > 0) {
+        await pool.query(
+          `INSERT INTO team_members (team_id, user_id, hackathon_id, role)
+           SELECT team_id, user_id, hackathon_id, role
+           FROM jsonb_to_recordset($1::jsonb) AS x(
+             team_id uuid,
+             user_id uuid,
+             hackathon_id uuid,
+             role varchar
+           )
+           ON CONFLICT DO NOTHING`,
+          [JSON.stringify(memberObjects)]
+        );
+      }
 
       for (const row of teamInsert.rows) {
         allTeamIds.push(row.id);
