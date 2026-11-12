@@ -6,6 +6,8 @@
 [![CI](https://github.com/ajay/race-proof-team-formation/actions/workflows/ci.yml/badge.svg)](https://github.com/ajay/race-proof-team-formation/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> 📖 **Quick Link:** For a complete walkthrough on how to run, test, and verify the platform, see the [Step-by-Step Execution Guide](file:///d:/Prj/Hach4Hack/STEP_BY_STEP_GUIDE.md).
+
 ---
 
 ## 📋 Hackathon Requirements Checklist & 5x Verification

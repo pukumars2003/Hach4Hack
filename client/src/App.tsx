@@ -59,9 +59,15 @@ export function App() {
       }
 
       if (getAuthToken()) {
-        const me = await api.getMe();
-        setCurrentUser(me.user);
-        setUserMembership(me.membership);
+        try {
+          const me = await api.getMe();
+          setCurrentUser(me.user);
+          setUserMembership(me.membership);
+        } catch {
+          clearAuthToken();
+          setCurrentUser(null);
+          setUserMembership(null);
+        }
       }
     } catch {
       // Not logged in or fresh
@@ -313,6 +319,7 @@ export function App() {
             onLoadMore={() => fetchTeams(false)}
             currentUserId={currentUser?.id}
             userTeamId={userMembership?.team_id}
+            onOpenAuth={() => setIsAuthOpen(true)}
           />
         )}
       </main>

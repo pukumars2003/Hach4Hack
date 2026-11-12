@@ -15,6 +15,7 @@ interface LiveBoardProps {
   onRequestJoin: (team: Team) => void;
   onOpenCreateTeam: () => void;
   onOpenJoinCode: () => void;
+  onOpenAuth?: () => void;
   hasMore: boolean;
   onLoadMore: () => void;
   currentUserId?: string;
@@ -34,6 +35,7 @@ export function LiveBoard({
   onRequestJoin,
   onOpenCreateTeam,
   onOpenJoinCode,
+  onOpenAuth,
   hasMore,
   onLoadMore,
   currentUserId,
@@ -43,6 +45,31 @@ export function LiveBoard({
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto py-8 px-4 sm:px-8">
+      {/* Guest Info Banner */}
+      {!currentUserId && (
+        <div className="bg-pine text-[#F3F1EA] rounded-[14px] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div>
+            <div className="font-bold text-[15px] flex items-center gap-2">
+              <span>Browsing as Guest</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-mint text-pine font-bold uppercase">
+                10k Participants Ready
+              </span>
+            </div>
+            <p className="text-xs text-[#C9D8D5] mt-1">
+              Sign in with demo credentials (<span className="font-mono text-white">user00001@demo.test</span> / <span className="font-mono text-white">Demo@12345</span>) to create teams, accept requests, or take the last seat.
+            </p>
+          </div>
+          {onOpenAuth && (
+            <button
+              onClick={onOpenAuth}
+              className="h-9 px-4 rounded-lg bg-mint hover:bg-mint-hover text-pine font-bold text-xs transition-colors shrink-0 shadow-sm"
+            >
+              Sign in to participate
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
