@@ -47,10 +47,11 @@ export async function seedDatabase(options: { userCount?: number; teamCount?: nu
 
       for (let i = 0; i < currentChunk; i++) {
         const idx = c + i;
+        const paddedIdx = String(idx + 1).padStart(5, '0');
         userObjects.push({
-          email: `hacker_${idx}@hackathon.org`,
+          email: `user${paddedIdx}@demo.test`,
           password_hash: PRECOMPUTED_SEED_PASSWORD_HASH,
-          name: `Hacker ${idx}`,
+          name: `Demo User ${paddedIdx}`,
           skills: [
             SKILL_POOL[idx % SKILL_POOL.length],
             SKILL_POOL[(idx * 3 + 1) % SKILL_POOL.length],
@@ -77,7 +78,9 @@ export async function seedDatabase(options: { userCount?: number; teamCount?: nu
            timezone_offset_minutes int,
            discovery_enabled boolean
          )
-         ON CONFLICT (email) DO NOTHING
+         ON CONFLICT (email) DO UPDATE SET 
+           password_hash = EXCLUDED.password_hash,
+           name = EXCLUDED.name
          RETURNING id`,
         [JSON.stringify(userObjects)]
       );
