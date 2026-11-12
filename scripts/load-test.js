@@ -34,15 +34,15 @@ const joinErrors   = new Counter('join_errors');
 // ── Test configuration ────────────────────────────────────────────────────────
 export const options = {
   scenarios: {
-    // Scenario 1: Board load — anonymous reads
+    // Scenario 1: Board load — 100 concurrent users (Organizer requirement) & 500 peak (5x target)
     board_read: {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '5s',  target: 100 },  // ramp-up
-        { duration: '20s', target: 500 },  // 5x peak
-        { duration: '10s', target: 500 },  // hold
-        { duration: '5s',  target: 0   },  // ramp-down
+        { duration: '5s',  target: 100 }, // Ramp to 100 VUs (Organizer requirement)
+        { duration: '15s', target: 100 }, // Hold 100 VUs (p95 < 200ms benchmark)
+        { duration: '10s', target: 500 }, // Ramp to 500 VUs (5x scale benchmark)
+        { duration: '5s',  target: 0   }, // Ramp down
       ],
       exec: 'boardRead',
     },

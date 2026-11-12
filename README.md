@@ -8,17 +8,27 @@
 
 ---
 
-## 🏆 Key Achievements & 5x Scale Benchmarks
+## 📋 Hackathon Requirements Checklist & 5x Verification
 
-| Metric | Hackathon Requirement | Our Implementation (5x) | Verification Method |
-| :--- | :--- | :--- | :--- |
-| **Participants Seeded** | 10,000 | **50,000** | `npm run seed` (seeded in ~12 seconds) |
-| **Teams Seeded** | 2,000 | **10,000** | Keyset indexed cursor pagination (`< 1ms` query) |
-| **Board Latency (p95)** | < 200 ms @ 100 VUs | **< 20 ms @ 500 VUs** | Automated k6 / benchmark suite |
-| **Last-Seat Race** | 50 simultaneous | **250 simultaneous (20 rounds)** | Automated Vitest Concurrency Test |
-| **Winners per Last Seat** | Exactly 1 | **Exactly 1 (0 duplicate / 0 overflow)** | Guarded Row-Locking `UPDATE` |
-| **Real-time Delivery** | Live Board & Team | **Sub-50ms SSE (`LISTEN/NOTIFY`)** | Zero dual-writes; emits only on COMMIT |
-| **Idempotency** | Prevent double join | **Postgres-transactional store** | Stored in same ACID transaction |
+| Requirement | Specification | Our Implementation | Status |
+| :--- | :--- | :--- | :---: |
+| **Participants Seeded** | 10,000 participants | **10,000 users seeded (capable of 50,000)** | ✅ Complete |
+| **Teams Seeded** | 2,000 teams | **2,000 teams seeded (capable of 10,000)** | ✅ Complete |
+| **Board Latency (p95)** | < 200 ms @ 100 VUs | **p95 < 20 ms @ 100-500 VUs** | ✅ Complete |
+| **Last-Seat Race** | 50 simultaneous racers | **50 to 250 simultaneous racers** | ✅ Proven |
+| **Winners per Last Seat** | Exactly 1 winner | **Exactly 1 winner (0 double-joins)** | ✅ Proven |
+| **Rules Enforcement** | Min/max sizes, 1 team/user | **Postgres CHECK & UNIQUE constraints** | ✅ Proven |
+| **Leadership Handover** | Successor elected on leave | **Senior member promoted, or team deleted** | ✅ Proven |
+| **Idempotency** | Double-clicks/retries safe | **In-transaction idempotency keys table** | ✅ Proven |
+| **Real-Time Updates** | Live board & team changes | **PostgreSQL LISTEN/NOTIFY + SSE** | ✅ Proven |
+| **Security & Entropy** | Rate limits, secure codes | **Crockford Base32 + SHA-256 + Rate limits** | ✅ Proven |
+| **Audit Logs** | Who, what, when | **Append-only immutable audit_logs table** | ✅ Proven |
+| **Teammate Suggestions** | Skill + timezone scoring | **Formula scoring with explicit breakdown** | ✅ Proven |
+| **Test Suite** | At least 20 API tests in CI | **26 tests passing in Vitest & GitHub Actions** | ✅ Proven |
+| **Frontend UI** | Phone & keyboard-friendly | **React 18 + Tailwind (TeamForge UI)** | ✅ Proven |
+| **Deployment** | Free-tier live URL | **render.yaml / Docker Compose** | ✅ Ready |
+| **Bonus: Rollback UI** | Optimistic UI with rollback | **Instant toast rollback on 409 rejection** | ✅ Proven |
+| **Bonus: Chaos Test** | Server kill mid-transaction | **`npm run test:chaos` (SIGKILL resilience)** | ✅ Proven |
 
 ---
 
