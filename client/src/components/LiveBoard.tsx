@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Filter, Users, ArrowRight, ShieldCheck, Clock, UserPlus } from 'lucide-react';
+import React from 'react';
+import { Search, Plus, KeyRound, Users } from 'lucide-react';
 import { Team } from '../types.js';
 
 interface LiveBoardProps {
@@ -13,6 +13,8 @@ interface LiveBoardProps {
   setSelectedSkill: (s: string) => void;
   onSelectTeam: (teamId: string) => void;
   onRequestJoin: (team: Team) => void;
+  onOpenCreateTeam: () => void;
+  onOpenJoinCode: () => void;
   hasMore: boolean;
   onLoadMore: () => void;
   currentUserId?: string;
@@ -30,82 +32,110 @@ export function LiveBoard({
   setSelectedSkill,
   onSelectTeam,
   onRequestJoin,
+  onOpenCreateTeam,
+  onOpenJoinCode,
   hasMore,
   onLoadMore,
   currentUserId,
   userTeamId,
 }: LiveBoardProps) {
-  const commonSkills = ['React', 'Node.js', 'PostgreSQL', 'TypeScript', 'Python', 'Docker', 'Rust', 'Machine Learning'];
+  const commonSkills = ['React', 'Node', 'Postgres', 'TypeScript', 'Python', 'Rust', 'Go', 'Docker'];
 
   return (
-    <div className="space-y-6">
-      {/* Search & Filters */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              id="search-input"
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search teams by name or description... (Press / to focus)"
-              className="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-            />
-          </div>
-
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-            {['all', 'forming', 'ready', 'full'].map((st) => (
-              <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1.5 rounded-lg capitalize font-medium transition-colors ${
-                  statusFilter === st
-                    ? 'bg-slate-800 text-emerald-400 font-bold shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {st}
-              </button>
-            ))}
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto py-8 px-4 sm:px-8">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold tracking-tight text-charcoal">
+            Looking for teammates
+          </h1>
+          <div className="text-[15px] text-muted">
+            Teams with open seats, updated the moment anything changes.
           </div>
         </div>
 
-        {/* Skill Badges */}
-        <div className="flex items-center gap-2 flex-wrap text-xs pt-1 border-t border-slate-800/60">
-          <span className="text-slate-500 flex items-center gap-1 mr-1">
-            <Filter className="w-3.5 h-3.5" /> Needed:
-          </span>
-          {commonSkills.map((sk) => (
-            <button
-              key={sk}
-              onClick={() => setSelectedSkill(selectedSkill === sk ? '' : sk)}
-              className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${
-                selectedSkill === sk
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
-                  : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
-              }`}
-            >
-              {sk}
-            </button>
-          ))}
-          {selectedSkill && (
-            <button
-              onClick={() => setSelectedSkill('')}
-              className="text-xs text-rose-400 hover:underline ml-2"
-            >
-              Clear
-            </button>
-          )}
+        {/* Header Action Buttons */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onOpenJoinCode}
+            className="h-11 px-4.5 py-0 border border-teal rounded-[10px] bg-white text-teal-dark font-semibold text-[15px] hover:bg-teal-light transition-colors flex items-center gap-2"
+          >
+            <KeyRound className="w-4 h-4 text-teal" />
+            <span>Join with code</span>
+          </button>
+          <button
+            onClick={onOpenCreateTeam}
+            className="h-11 px-4.5 py-0 border-0 rounded-[10px] bg-teal hover:bg-teal-hover text-white font-semibold text-[15px] transition-colors flex items-center gap-2 shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create team</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div className="flex gap-3 items-center flex-wrap">
+        <div className="flex-1 min-w-[280px] relative">
+          <label htmlFor="q" className="sr-only">Search teams</label>
+          <input
+            id="q"
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search teams or skills   ( press / )"
+            className="w-full h-11 box-border border border-borderMuted rounded-[10px] px-3.5 text-[15px] text-charcoal bg-white placeholder:text-muted focus:outline-none focus:border-teal transition-colors"
+          />
+        </div>
+
+        {/* Filter Pills */}
+        <button
+          onClick={() => setStatusFilter(statusFilter === 'forming' ? 'all' : 'forming')}
+          className={`h-11 px-4 rounded-[22px] text-sm font-semibold transition-colors border ${
+            statusFilter === 'forming'
+              ? 'border-teal bg-teal-light text-teal-dark'
+              : 'border-borderMuted bg-white text-[#33373E] hover:border-teal'
+          }`}
+        >
+          Open seats only
+        </button>
+
+        {/* Skill Filter Dropdown / Pill */}
+        <div className="relative">
+          <select
+            value={selectedSkill}
+            onChange={(e) => setSelectedSkill(e.target.value)}
+            className="h-11 px-4 rounded-[22px] border border-borderMuted bg-white text-[#33373E] font-medium text-sm focus:outline-none focus:border-teal cursor-pointer"
+          >
+            <option value="">Skill: any</option>
+            {commonSkills.map((sk) => (
+              <option key={sk} value={sk}>
+                Skill: {sk}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Status Dropdown */}
+        <div className="relative">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-11 px-4 rounded-[22px] border border-borderMuted bg-white text-[#33373E] font-medium text-sm focus:outline-none focus:border-teal cursor-pointer"
+          >
+            <option value="all">Status: any</option>
+            <option value="forming">Status: Forming</option>
+            <option value="ready">Status: Ready</option>
+            <option value="full">Status: Full</option>
+          </select>
         </div>
       </div>
 
       {/* Team Cards Grid */}
       {teams.length === 0 && !isLoading ? (
-        <div className="text-center py-16 bg-slate-900/50 rounded-2xl border border-slate-800">
-          <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-200">No teams found</h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+        <div className="text-center py-20 bg-white rounded-2xl border border-cardBorder">
+          <Users className="w-12 h-12 text-muted mx-auto mb-3 opacity-60" />
+          <h3 className="text-lg font-bold text-charcoal">No teams found</h3>
+          <p className="text-sm text-muted mt-1 max-w-sm mx-auto">
             Try adjusting your search criteria or create a new team to begin forming your squad.
           </p>
         </div>
@@ -113,105 +143,103 @@ export function LiveBoard({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {teams.map((t) => {
             const isFull = t.member_count >= t.max_members;
+            const isReady = t.member_count >= (t.max_members - 1) && !isFull;
             const isUserInThisTeam = userTeamId === t.id;
-            const progress = (t.member_count / t.max_members) * 100;
+
+            const badgeLabel = isFull ? 'Full' : isReady ? 'Ready' : 'Forming';
+            const badgeBg = isFull ? 'bg-[#E8E6DE]' : isReady ? 'bg-[#DCF3E4]' : 'bg-[#FDEBC8]';
+            const badgeFg = isFull ? 'text-[#33373E]' : isReady ? 'text-[#14532D]' : 'text-[#7A3E00]';
 
             return (
               <div
                 key={t.id}
-                className="bg-slate-900 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-5 flex flex-col justify-between transition-all hover:shadow-xl group"
+                className="bg-white border border-cardBorder rounded-[14px] p-5 flex flex-col justify-between gap-3.5 hover:shadow-md transition-shadow"
               >
-                <div>
-                  {/* Status & Capacity */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span
-                      className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                        t.status === 'full'
-                          ? 'bg-slate-800 text-slate-400'
-                          : t.status === 'ready'
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      }`}
+                <div className="flex flex-col gap-3">
+                  {/* Title & Status Badge */}
+                  <div className="flex justify-between items-start gap-2">
+                    <h3
+                      onClick={() => onSelectTeam(t.id)}
+                      className="font-bold text-[18px] text-charcoal cursor-pointer hover:text-teal transition-colors truncate flex-1"
                     >
-                      {t.status}
+                      {t.name}
+                    </h3>
+                    <span
+                      className={`text-[12px] font-semibold px-2.5 py-1 rounded-[12px] shrink-0 ${badgeBg} ${badgeFg}`}
+                    >
+                      {badgeLabel}
                     </span>
-
-                    <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-slate-300">
-                      <Users className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{t.member_count}/{t.max_members}</span>
-                    </div>
                   </div>
 
-                  {/* Member Capacity Progress Bar */}
-                  <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden mb-3">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isFull ? 'bg-slate-600' : t.status === 'ready' ? 'bg-blue-500' : 'bg-emerald-500'
-                      }`}
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-
-                  {/* Team Title */}
-                  <h3
-                    onClick={() => onSelectTeam(t.id)}
-                    className="text-base font-bold text-white group-hover:text-emerald-400 transition-colors cursor-pointer truncate"
-                  >
-                    {t.name}
-                  </h3>
-
-                  <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">
-                    {t.description || 'No description provided.'}
+                  {/* Description */}
+                  <p className="text-[14px] text-muted leading-[1.45] line-clamp-2 min-h-[40px]">
+                    {t.description || 'Building next-gen systems for this hackathon.'}
                   </p>
 
-                  {/* Needed Skills */}
-                  {t.needed_skills && t.needed_skills.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {t.needed_skills.slice(0, 3).map((sk) => (
+                  {/* Skills Pills */}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {t.needed_skills && t.needed_skills.length > 0 ? (
+                      t.needed_skills.map((sk) => (
                         <span
                           key={sk}
-                          className="px-2 py-0.5 rounded-md bg-slate-950 text-slate-300 border border-slate-800 text-[10px] font-medium"
+                          className="text-[13px] px-2.5 py-1 rounded-[8px] bg-borderLight text-[#33373E]"
                         >
                           {sk}
                         </span>
-                      ))}
-                      {t.needed_skills.length > 3 && (
-                        <span className="text-[10px] text-slate-500 self-center">
-                          +{t.needed_skills.length - 3} more
-                        </span>
-                      )}
-                    </div>
-                  )}
+                      ))
+                    ) : (
+                      <span className="text-[13px] px-2.5 py-1 rounded-[8px] bg-borderLight text-muted italic">
+                        Open to all skills
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* Footer Controls */}
-                <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 truncate text-slate-400">
-                    <div className="w-5 h-5 rounded-full bg-slate-800 text-[10px] flex items-center justify-center font-bold text-emerald-400">
-                      {(t.leader_name || 'L').slice(0, 1)}
+                <div className="flex flex-col gap-3 pt-2">
+                  {/* Seats Dots Indicator & Timezone */}
+                  <div className="flex items-center justify-between text-[14px] text-[#33373E]">
+                    <div className="flex items-center gap-1.5">
+                      {Array.from({ length: t.max_members }).map((_, i) => (
+                        <span
+                          key={i}
+                          className={`w-3 h-3 rounded-full inline-block transition-colors ${
+                            i < t.member_count ? 'bg-teal' : 'bg-[#D4D1C5]'
+                          }`}
+                        />
+                      ))}
+                      <span className="ml-1.5 font-semibold text-[13px] font-mono">
+                        {t.member_count} / {t.max_members}
+                      </span>
                     </div>
-                    <span className="truncate max-w-[100px]">{t.leader_name}</span>
+
+                    <div className="text-[13px] text-muted font-mono">
+                      {(t as any).leader_timezone || 'UTC+5:30'}
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {!isUserInThisTeam && !userTeamId && !isFull && (
-                      <button
-                        onClick={() => onRequestJoin(t)}
-                        className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/20 flex items-center gap-1 transition-colors"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>Request</span>
-                      </button>
-                    )}
-
+                  {/* Main Action Button */}
+                  {isUserInThisTeam ? (
                     <button
                       onClick={() => onSelectTeam(t.id)}
-                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium flex items-center gap-1 transition-colors"
+                      className="w-full h-11 border border-teal rounded-[10px] bg-teal-light text-teal-dark font-semibold text-[15px]"
                     >
-                      <span>View</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      Your team · View
                     </button>
-                  </div>
+                  ) : isFull ? (
+                    <button
+                      disabled
+                      className="w-full h-11 border-0 rounded-[10px] bg-[#E8E6DE] text-muted font-semibold text-[15px] cursor-not-allowed"
+                    >
+                      Team full
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onRequestJoin(t)}
+                      className="w-full h-11 border-0 rounded-[10px] bg-teal hover:bg-teal-hover text-white font-semibold text-[15px] transition-colors"
+                    >
+                      Ask to join
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -219,19 +247,18 @@ export function LiveBoard({
         </div>
       )}
 
-      {/* Pagination Load More */}
+      {/* Load More Pagination */}
       {hasMore && (
         <div className="text-center pt-4">
           <button
             onClick={onLoadMore}
             disabled={isLoading}
-            className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-300 transition-all hover:border-slate-700 active:scale-95"
+            className="px-6 py-2.5 rounded-[10px] bg-white hover:bg-canvas border border-cardBorder text-sm font-semibold text-charcoal transition-colors"
           >
-            {isLoading ? 'Loading more teams...' : 'Load More Teams'}
+            {isLoading ? 'Loading teams...' : 'Load more teams'}
           </button>
         </div>
       )}
     </div>
   );
 }
-

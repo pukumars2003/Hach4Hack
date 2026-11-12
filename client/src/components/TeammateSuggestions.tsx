@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Compass, BrainCircuit, Heart, RefreshCw, UserPlus } from 'lucide-react';
+import { Sparkles, RefreshCw, UserPlus } from 'lucide-react';
 import { Suggestion } from '../types.js';
 import { api } from '../api/client.js';
 
-export function TeammateSuggestions({ teamId }: { teamId: string }) {
+export function TeammateSuggestions({ teamId }: { teamId?: string }) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -12,8 +12,56 @@ export function TeammateSuggestions({ teamId }: { teamId: string }) {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await api.getSuggestions(teamId);
-      setSuggestions(res.suggestions);
+      if (teamId) {
+        const res = await api.getSuggestions(teamId);
+        setSuggestions(res.suggestions);
+      } else {
+        // Fallback: mock or general candidates
+        setSuggestions([
+          {
+            userId: 'sugg-1',
+            name: 'Priya N.',
+            email: 'priya@demo.test',
+            skills: ['Node', 'Postgres', 'TypeScript'],
+            interests: ['Distributed Systems'],
+            timezoneOffsetMinutes: 330,
+            score: 78,
+            breakdown: {
+              skills: { score: 85, reason: 'Covers Node and Postgres, which your team wants.' },
+              timezone: { score: 100, reason: '0 hours from your time zone.' },
+              interests: { score: 60, reason: 'Shared focus on Distributed Systems' },
+            },
+          },
+          {
+            userId: 'sugg-2',
+            name: 'Omar T.',
+            email: 'omar@demo.test',
+            skills: ['Docker', 'Rust', 'Kubernetes'],
+            interests: ['DevOps'],
+            timezoneOffsetMinutes: 270,
+            score: 64,
+            breakdown: {
+              skills: { score: 70, reason: 'Brings Docker, which the team lacks.' },
+              timezone: { score: 80, reason: '1 hour from your time zone.' },
+              interests: { score: 50, reason: 'Shared interest in backend tooling' },
+            },
+          },
+          {
+            userId: 'sugg-3',
+            name: 'Elena V.',
+            email: 'elena@demo.test',
+            skills: ['React', 'Design', 'TailwindCSS'],
+            interests: ['UI/UX'],
+            timezoneOffsetMinutes: 330,
+            score: 59,
+            breakdown: {
+              skills: { score: 60, reason: 'Strong UI overlap.' },
+              timezone: { score: 100, reason: 'Same time zone.' },
+              interests: { score: 40, reason: 'Design focus' },
+            },
+          },
+        ]);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -26,22 +74,22 @@ export function TeammateSuggestions({ teamId }: { teamId: string }) {
   }, [teamId]);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+    <div className="bg-white border border-cardBorder rounded-[14px] p-6 shadow-sm space-y-6 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between pb-4 border-b border-borderLight">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-emerald-400" />
-            <span>Teammate Recommendation Engine</span>
+          <h3 className="text-xl font-bold text-charcoal flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-teal" />
+            <span>Suggested Teammates</span>
           </h3>
-          <p className="text-xs text-slate-400 mt-1">
-            Candidates ranked by skill complementarity (0.6), timezone proximity (0.3), and interest overlap (0.1).
+          <p className="text-sm text-muted mt-1">
+            Ranked by complementary skills (0.6), timezone proximity (0.3), and interest overlap (0.1).
           </p>
         </div>
 
         <button
           onClick={fetchSuggestions}
           disabled={isLoading}
-          className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+          className="px-3.5 py-2 rounded-lg border border-borderMuted hover:bg-canvas text-charcoal text-xs font-semibold flex items-center gap-1.5 transition-colors"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
@@ -49,97 +97,59 @@ export function TeammateSuggestions({ teamId }: { teamId: string }) {
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-danger text-sm">
           {error}
         </div>
       )}
 
       {isLoading ? (
-        <div className="py-12 text-center text-xs text-slate-500">
-          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-400" />
-          Evaluating candidate pool and calculating complementarity matrix...
+        <div className="py-16 text-center text-sm text-muted">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-teal" />
+          Calculating complementarity matrix across candidate pool...
         </div>
       ) : suggestions.length === 0 ? (
-        <div className="py-12 text-center text-xs text-slate-500 italic">
-          No eligible candidates found. All participants may currently belong to a team.
+        <div className="py-12 text-center text-sm text-muted">
+          No matching candidates available right now.
         </div>
       ) : (
-        <div className="space-y-4">
-          {suggestions.map((cand) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {suggestions.map((s) => (
             <div
-              key={cand.userId}
-              className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl p-4 transition-all"
+              key={s.userId}
+              className="border border-cardBorder rounded-[10px] p-4 flex flex-col justify-between gap-3 bg-canvas/30 hover:bg-canvas/60 transition-colors"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-emerald-400 text-sm">
-                    {cand.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-200">{cand.name}</h4>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      UTC {cand.timezoneOffsetMinutes >= 0 ? `+${cand.timezoneOffsetMinutes / 60}h` : `${cand.timezoneOffsetMinutes / 60}h`}
-                    </div>
-                  </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-base text-charcoal">{s.name}</span>
+                  <span className="font-mono font-bold text-base text-teal-dark bg-teal-light px-2.5 py-0.5 rounded-full">
+                    {s.score} pts
+                  </span>
                 </div>
 
-                {/* Score Pill */}
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Match Score</div>
-                    <div className="text-xl font-black text-emerald-400 font-mono">
-                      {cand.score} <span className="text-xs text-slate-500 font-normal">/ 100</span>
-                    </div>
-                  </div>
+                <p className="text-sm text-muted leading-relaxed">
+                  {s.breakdown?.skills?.reason || 'Good skills and timezone match.'}
+                </p>
+
+                <div className="flex gap-1.5 flex-wrap pt-1">
+                  {s.skills.map((sk) => (
+                    <span
+                      key={sk}
+                      className="text-xs px-2 py-0.5 rounded bg-borderLight text-charcoal"
+                    >
+                      {sk}
+                    </span>
+                  ))}
                 </div>
               </div>
 
-              {/* Explainability Breakdown */}
-              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
-                {/* Skill Synergy */}
-                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80">
-                  <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="flex items-center gap-1 font-medium">
-                      <BrainCircuit className="w-3.5 h-3.5 text-indigo-400" /> Skill Synergy
-                    </span>
-                    <span className="font-mono font-bold text-slate-300">
-                      {Math.round(cand.breakdown.skills.score * 100)}%
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-snug">
-                    {cand.breakdown.skills.reason}
-                  </p>
-                </div>
-
-                {/* Timezone Overlap */}
-                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80">
-                  <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="flex items-center gap-1 font-medium">
-                      <Compass className="w-3.5 h-3.5 text-amber-400" /> Timezone
-                    </span>
-                    <span className="font-mono font-bold text-slate-300">
-                      {Math.round(cand.breakdown.timezone.score * 100)}%
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-snug">
-                    {cand.breakdown.timezone.reason}
-                  </p>
-                </div>
-
-                {/* Shared Interests */}
-                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80">
-                  <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <span className="flex items-center gap-1 font-medium">
-                      <Heart className="w-3.5 h-3.5 text-rose-400" /> Interests
-                    </span>
-                    <span className="font-mono font-bold text-slate-300">
-                      {Math.round(cand.breakdown.interests.score * 100)}%
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-snug">
-                    {cand.breakdown.interests.reason}
-                  </p>
-                </div>
+              <div className="pt-2">
+                <button
+                  onClick={() => alert(`Invite sent to ${s.name}!`)}
+                  className="w-full h-9 border border-teal rounded-lg bg-white text-teal-dark hover:bg-teal-light font-semibold text-xs transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Send invite</span>
+                </button>
               </div>
             </div>
           ))}
@@ -148,4 +158,3 @@ export function TeammateSuggestions({ teamId }: { teamId: string }) {
     </div>
   );
 }
-

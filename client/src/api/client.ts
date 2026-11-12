@@ -123,5 +123,13 @@ export const api = {
   // Suggestions
   getSuggestions: (teamId: string) =>
     apiRequest<{ teamId: string; suggestions: Suggestion[] }>(`/teams/${teamId}/suggestions`),
+
+  // Audit Logs
+  getAuditLogs: (query: { teamId?: string; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (query.teamId) searchParams.append('teamId', query.teamId);
+    if (query.limit) searchParams.append('limit', String(query.limit));
+    return apiRequest<{ logs: any[] }>(`/audit?${searchParams.toString()}`);
+  },
 };
 

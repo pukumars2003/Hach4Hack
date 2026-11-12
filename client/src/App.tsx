@@ -3,6 +3,7 @@ import { Navbar } from './components/Navbar.js';
 import { LiveBoard } from './components/LiveBoard.js';
 import { TeamDetail } from './components/TeamDetail.js';
 import { ConcurrencyLab } from './components/ConcurrencyLab.js';
+import { TeammateSuggestions } from './components/TeammateSuggestions.js';
 import {
   CreateTeamModal,
   JoinCodeModal,
@@ -20,7 +21,7 @@ export function App() {
   const [hackathons, setHackathons] = useState<any[]>([]);
   const [activeHackathonId, setActiveHackathonId] = useState<string>('');
 
-  const [activeTab, setActiveTab] = useState<'board' | 'my-team' | 'lab'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'my-team' | 'suggestions' | 'lab'>('board');
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedTeamData, setSelectedTeamData] = useState<ITeamDetail | null>(null);
 
@@ -41,12 +42,11 @@ export function App() {
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
 
-  // Toast / Status notification
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  // Toast / Status notification (TeamForge toast format)
+  const [notification, setNotification] = useState<{ message: string; type?: 'alert' | 'info' | 'success' } | null>(null);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+  const showToast = (message: string, type: 'alert' | 'info' | 'success' = 'info') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000);
   };
 
   // 1. Initial Load: Check auth & hackathons
@@ -117,7 +117,7 @@ export function App() {
       const data = await api.getTeam(selectedTeamId);
       setSelectedTeamData(data);
     } catch (err: any) {
-      showToast(err.message, 'error');
+      showToast(err.message, 'alert');
       setSelectedTeamId(null);
     }
   }, [selectedTeamId]);
@@ -141,7 +141,7 @@ export function App() {
         fetchSelectedTeam();
       }
       if (event.type === 'member_joined') {
-        showToast('A new member just joined a team!', 'info');
+        showToast('A new seat was claimed on the board!', 'info');
       }
     },
   });
@@ -149,7 +149,6 @@ export function App() {
   // 5. Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing inside form inputs
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
         if (e.key === 'Escape') {
           (e.target as HTMLElement).blur();
@@ -172,7 +171,7 @@ export function App() {
           break;
         case '/':
           e.preventDefault();
-          document.getElementById('search-input')?.focus();
+          document.getElementById('q')?.focus();
           break;
         case 'l':
         case 'L':
@@ -206,13 +205,13 @@ export function App() {
 
     try {
       const res = await api.leaveTeam(userMembership.team_id);
-      showToast(res.message, 'success');
+      showToast(res.message, 'info');
       setUserMembership(null);
       setSelectedTeamId(null);
       setActiveTab('board');
       fetchTeams(true);
     } catch (err: any) {
-      showToast(err.message, 'error');
+      showToast(err.message, 'alert');
     }
   };
 
@@ -220,25 +219,21 @@ export function App() {
     clearAuthToken();
     setCurrentUser(null);
     setUserMembership(null);
-    showToast('Logged out successfully.', 'info');
+    showToast('Signed out successfully.', 'info');
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-      {/* Toast Notification */}
+    <div className="min-h-screen flex flex-col bg-canvas text-charcoal font-sans">
+      {/* Toast Notification Banner (Exact design from TeamForge UI Screens) */}
       {notification && (
-        <div className="fixed top-20 right-6 z-50 animate-in slide-in-from-top-4 duration-300">
-          <div
-            className={`px-4 py-2.5 rounded-xl border text-xs font-semibold shadow-2xl flex items-center gap-2 ${
-              notification.type === 'success'
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                : notification.type === 'error'
-                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                : 'bg-slate-900 border-slate-700 text-slate-200'
-            }`}
+        <div className="fixed left-1/2 bottom-7 -translate-x-1/2 z-50 bg-[#7A3E00] text-white rounded-xl px-5 py-3.5 text-[15px] font-medium flex items-center gap-4 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+          <span>{notification.message}</span>
+          <button
+            onClick={() => setNotification(null)}
+            className="h-8.5 px-3.5 border border-[#F5D9B8] rounded-lg bg-transparent text-white font-semibold text-[13px] hover:bg-white/10 transition-colors"
           >
-            <span>{notification.message}</span>
-          </div>
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -266,36 +261,19 @@ export function App() {
           }
         }}
         hasTeam={!!userMembership}
+        onOpenAuth={() => setIsAuthOpen(true)}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Banner if not signed in */}
-        {!currentUser && (
-          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Race-Proof Team Formation Platform</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">
-                  5x Scale Ready
-                </span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Guaranteed race-free team formation powered by PostgreSQL row-locking transactions and transactional idempotency.
-              </p>
-            </div>
-            <button
-              onClick={() => setIsAuthOpen(true)}
-              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors shrink-0"
-            >
-              Sign In / Register
-            </button>
-          </div>
-        )}
-
-        {/* Tab Content */}
+      {/* Main Content */}
+      <main className="flex-1 w-full">
         {activeTab === 'lab' ? (
-          <ConcurrencyLab hackathonId={activeHackathonId} />
+          <div className="max-w-7xl mx-auto py-8 px-4 sm:px-8">
+            <ConcurrencyLab hackathonId={activeHackathonId} />
+          </div>
+        ) : activeTab === 'suggestions' ? (
+          <div className="max-w-7xl mx-auto py-8 px-4 sm:px-8">
+            <TeammateSuggestions teamId={userMembership?.team_id} />
+          </div>
         ) : selectedTeamId && selectedTeamData ? (
           <TeamDetail
             team={selectedTeamData}
@@ -323,6 +301,14 @@ export function App() {
               setTargetRequestTeam(team);
               setIsRequestOpen(true);
             }}
+            onOpenCreateTeam={() => {
+              if (!currentUser) setIsAuthOpen(true);
+              else setIsCreateOpen(true);
+            }}
+            onOpenJoinCode={() => {
+              if (!currentUser) setIsAuthOpen(true);
+              else setIsJoinCodeOpen(true);
+            }}
             hasMore={hasMore}
             onLoadMore={() => fetchTeams(false)}
             currentUserId={currentUser?.id}
@@ -332,12 +318,12 @@ export function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-400">
+      <footer className="border-t border-cardBorder py-6 text-center text-xs text-muted mt-auto">
         <div>
-          PS1 Concurrency Championship · Built with <span className="text-emerald-400 font-semibold">Fastify</span> + <span className="text-emerald-400 font-semibold">PostgreSQL 16 READ COMMITTED</span> + <span className="text-emerald-400 font-semibold">React 18</span>
+          TeamForge · Built with <span className="text-teal-dark font-semibold">Fastify</span> + <span className="text-teal-dark font-semibold">PostgreSQL 16 READ COMMITTED</span> + <span className="text-teal-dark font-semibold">React 18</span>
         </div>
-        <div className="mt-1 text-[11px] text-slate-400">
-          Press <kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded font-mono text-slate-200">?</kbd> for keyboard shortcuts · Press <kbd className="px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded font-mono text-slate-200">L</kbd> for Concurrency Stress Lab
+        <div className="mt-1 text-[11px] text-muted">
+          Press <kbd className="px-1.5 py-0.5 bg-white border border-borderMuted rounded font-mono text-charcoal">?</kbd> for keyboard shortcuts · Press <kbd className="px-1.5 py-0.5 bg-white border border-borderMuted rounded font-mono text-charcoal">/</kbd> to search
         </div>
       </footer>
 
@@ -371,7 +357,7 @@ export function App() {
         }}
         team={targetRequestTeam}
         onSuccess={() => {
-          showToast('Join request submitted to team leader.', 'success');
+          showToast('Join request submitted to team leader.', 'info');
         }}
       />
 
@@ -386,10 +372,9 @@ export function App() {
         onLoginSuccess={(user) => {
           setCurrentUser(user);
           loadUserAndHackathons();
-          showToast(`Welcome back, ${user.name}!`, 'success');
+          showToast(`Signed in as ${user.name}`, 'success');
         }}
       />
     </div>
   );
 }
-

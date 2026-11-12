@@ -52,87 +52,88 @@ export function CreateTeamModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Plus className="w-5 h-5 text-emerald-400" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white border border-cardBorder rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-borderLight">
+          <h2 className="text-xl font-bold text-charcoal flex items-center gap-2">
+            <Plus className="w-5 h-5 text-teal" />
             <span>Create New Team</span>
           </h2>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-200">
+          <button onClick={onClose} className="p-1 text-muted hover:text-charcoal transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-danger text-sm flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-4 text-sm">
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Team Name</label>
+            <label className="block text-charcoal font-semibold mb-1 text-[13px]">Team Name</label>
             <input
               type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Distributed Titans"
-              className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+              placeholder="e.g. Pixel Pushers"
+              className="w-full px-3.5 py-2.5 bg-white border border-borderMuted rounded-[10px] text-charcoal placeholder:text-muted focus:outline-none focus:border-teal"
             />
           </div>
 
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Description / Project Goal</label>
+            <label className="block text-charcoal font-semibold mb-1 text-[13px]">Description / Project Goal</label>
             <textarea
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What are you building during this hackathon?"
-              className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+              placeholder="Accessibility checker for small-business sites..."
+              className="w-full px-3.5 py-2.5 bg-white border border-borderMuted rounded-[10px] text-charcoal placeholder:text-muted focus:outline-none focus:border-teal"
             />
           </div>
 
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Needed Skills (Comma-separated)</label>
+            <label className="block text-charcoal font-semibold mb-1 text-[13px]">Wanted Skills (Comma-separated)</label>
             <input
               type="text"
               value={skillsInput}
               onChange={(e) => setSkillsInput(e.target.value)}
-              placeholder="e.g. React, Node.js, PostgreSQL, Docker"
-              className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+              placeholder="React, Node, Postgres, Design"
+              className="w-full px-3.5 py-2.5 bg-white border border-borderMuted rounded-[10px] text-charcoal placeholder:text-muted focus:outline-none focus:border-teal"
             />
           </div>
 
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Max Team Size</label>
+            <label className="block text-charcoal font-semibold mb-1 text-[13px]">Maximum Team Size</label>
             <select
               value={maxMembers}
-              onChange={(e) => setMaxMembers(Number(e.target.value))}
-              className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 focus:outline-none focus:border-emerald-500 cursor-pointer"
+              onChange={(e) => setMaxMembers(parseInt(e.target.value, 10))}
+              className="w-full px-3.5 py-2.5 bg-white border border-borderMuted rounded-[10px] text-charcoal focus:outline-none focus:border-teal"
             >
-              <option value={2}>2 Members (Pair)</option>
+              <option value={2}>2 Members</option>
               <option value={3}>3 Members</option>
-              <option value={4}>4 Members (Standard Max)</option>
+              <option value={4}>4 Members (Standard)</option>
+              <option value={5}>5 Members</option>
             </select>
           </div>
 
-          <div className="pt-2 flex justify-end gap-2">
+          <div className="pt-2 flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
+              className="px-4 py-2.5 rounded-[10px] text-charcoal border border-borderMuted hover:bg-canvas font-semibold transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition-all shadow-md active:scale-95"
+              className="px-5 py-2.5 rounded-[10px] bg-teal hover:bg-teal-hover text-white font-semibold transition-colors shadow-sm disabled:opacity-50"
             >
-              {isSubmitting ? 'Creating...' : 'Create Team'}
+              {isSubmitting ? 'Creating Team...' : 'Create Team'}
             </button>
           </div>
         </form>
@@ -141,7 +142,7 @@ export function CreateTeamModal({
   );
 }
 
-// --- JOIN BY CODE MODAL ---
+// --- JOIN CODE MODAL ---
 export function JoinCodeModal({
   isOpen,
   onClose,
@@ -149,7 +150,7 @@ export function JoinCodeModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (res: any) => void;
+  onSuccess: (data: { teamId: string; teamName: string }) => void;
 }) {
   const [code, setCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -157,85 +158,79 @@ export function JoinCodeModal({
 
   if (!isOpen) return null;
 
-  const handleFormatCode = (input: string) => {
-    // Format as ABCD-EFGH-JKMN
-    const clean = input.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 12);
-    let formatted = '';
-    for (let i = 0; i < clean.length; i++) {
-      if (i === 4 || i === 8) formatted += '-';
-      formatted += clean[i];
-    }
-    setCode(formatted);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const res = await api.joinByCode(code);
+      const res = await api.joinByCode(code.trim().toUpperCase());
       onSuccess(res);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to join team');
+      if (err.statusCode === 409) {
+        setError(err.message || 'Seat was just claimed by another racer or team is full.');
+      } else {
+        setError(err.message || 'Invalid or expired invite code.');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <KeyRound className="w-5 h-5 text-emerald-400" />
-            <span>Join Team by Invite Code</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white border border-cardBorder rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-borderLight">
+          <h2 className="text-xl font-bold text-charcoal flex items-center gap-2">
+            <KeyRound className="w-5 h-5 text-teal" />
+            <span>Join Team with Code</span>
           </h2>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-200">
+          <button onClick={onClose} className="p-1 text-muted hover:text-charcoal transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-xs text-slate-400">
-          Enter the 12-character Crockford Base32 invite code provided by the team leader.
-        </p>
-
         {error && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-danger text-sm flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Invite Code</label>
+            <label className="block text-charcoal font-semibold mb-1.5 text-[13px]">
+              Invite Code (Crockford Base32)
+            </label>
             <input
               type="text"
               required
               autoFocus
               value={code}
-              onChange={(e) => handleFormatCode(e.target.value)}
-              placeholder="ABCD-EFGH-JKMN"
-              className="w-full px-3.5 py-3 bg-slate-950 border border-slate-800 rounded-xl text-center text-lg font-mono font-bold tracking-widest text-emerald-400 placeholder-slate-700 focus:outline-none focus:border-emerald-500 uppercase"
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="e.g. K7QM-2XWD-9PFH"
+              className="w-full px-4 py-3 bg-white border border-borderMuted rounded-[10px] text-charcoal text-center text-lg font-mono font-bold tracking-widest placeholder:text-muted placeholder:font-sans placeholder:tracking-normal focus:outline-none focus:border-teal"
             />
+            <p className="text-[12px] text-muted mt-2">
+              Protected by PostgreSQL guarded transactions: hundreds can enter the code simultaneously, and exactly one claims the seat.
+            </p>
           </div>
 
-          <div className="pt-2 flex justify-end gap-2">
+          <div className="pt-2 flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
+              className="px-4 py-2.5 rounded-[10px] text-charcoal border border-borderMuted hover:bg-canvas font-semibold transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || code.length < 8}
-              className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting || !code.trim()}
+              className="px-5 py-2.5 rounded-[10px] bg-teal hover:bg-teal-hover text-white font-semibold transition-colors shadow-sm disabled:opacity-50"
             >
-              {isSubmitting ? 'Verifying & Claiming Seat...' : 'Claim Seat'}
+              {isSubmitting ? 'Verifying & Claiming...' : 'Claim Last Seat'}
             </button>
           </div>
         </form>
@@ -244,7 +239,7 @@ export function JoinCodeModal({
   );
 }
 
-// --- REQUEST JOIN MODAL ---
+// --- REQUEST TO JOIN MODAL ---
 export function RequestJoinModal({
   isOpen,
   onClose,
@@ -272,58 +267,58 @@ export function RequestJoinModal({
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to submit request');
+      setError(err.message || 'Failed to submit join request');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-emerald-400" />
-            <span>Request to Join {team.name}</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white border border-cardBorder rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-borderLight">
+          <h2 className="text-xl font-bold text-charcoal flex items-center gap-2">
+            <UserPlus className="w-5 h-5 text-teal" />
+            <span>Ask to Join {team.name}</span>
           </h2>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-200">
+          <button onClick={onClose} className="p-1 text-muted hover:text-charcoal transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-danger text-sm flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">
-              Message to Team Leader (Optional)
+            <label className="block text-charcoal font-semibold mb-1.5 text-[13px]">
+              Note to Team Leader
             </label>
             <textarea
               rows={3}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Tell them about your skills and what you'd like to work on..."
-              className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+              placeholder="Introduce yourself, your skills, and what you would like to build..."
+              className="w-full px-3.5 py-2.5 bg-white border border-borderMuted rounded-[10px] text-charcoal placeholder:text-muted focus:outline-none focus:border-teal text-sm"
             />
           </div>
 
-          <div className="pt-2 flex justify-end gap-2">
+          <div className="pt-2 flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
+              className="px-4 py-2.5 rounded-[10px] text-charcoal border border-borderMuted hover:bg-canvas font-semibold transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition-all shadow-md active:scale-95"
+              className="px-5 py-2.5 rounded-[10px] bg-teal hover:bg-teal-hover text-white font-semibold transition-colors shadow-sm disabled:opacity-50"
             >
               {isSubmitting ? 'Submitting...' : 'Send Request'}
             </button>
@@ -345,39 +340,47 @@ export function KeyboardHelpModal({
   if (!isOpen) return null;
 
   const shortcuts = [
-    { key: 'J', action: 'Join team with invite code' },
-    { key: 'C', action: 'Create a new team' },
-    { key: '/', action: 'Focus search bar' },
-    { key: 'L', action: 'Toggle Concurrency Lab' },
-    { key: 'Esc', action: 'Close active modal / Back to board' },
-    { key: '?', action: 'Open keyboard shortcuts guide' },
+    { key: 'J', desc: 'Open Join by Invite Code modal' },
+    { key: 'C', desc: 'Open Create New Team modal' },
+    { key: '/', desc: 'Focus and jump to search input' },
+    { key: 'L', desc: 'Toggle Concurrency Stress Lab' },
+    { key: 'Esc', desc: 'Close open modal or exit team view' },
+    { key: '?', desc: 'Show this keyboard navigation help' },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-emerald-400" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white border border-cardBorder rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-borderLight">
+          <h2 className="text-xl font-bold text-charcoal flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-teal" />
             <span>Keyboard Shortcuts</span>
           </h2>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-200">
+          <button onClick={onClose} className="p-1 text-muted hover:text-charcoal transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="divide-y divide-slate-800/80 text-xs">
-          {shortcuts.map((s) => (
-            <div key={s.key} className="py-2.5 flex items-center justify-between">
-              <span className="text-slate-300 font-medium">{s.action}</span>
-              <kbd className="px-2 py-1 rounded bg-slate-950 border border-slate-800 text-emerald-400 font-mono font-bold">
-                {s.key}
+        <div className="divide-y divide-borderLight">
+          {shortcuts.map((sc) => (
+            <div key={sc.key} className="py-2.5 flex items-center justify-between text-sm">
+              <span className="text-charcoal">{sc.desc}</span>
+              <kbd className="px-2.5 py-1 bg-canvas border border-borderMuted rounded font-mono text-xs font-semibold text-charcoal shadow-2xs">
+                {sc.key}
               </kbd>
             </div>
           ))}
+        </div>
+
+        <div className="pt-2 text-center">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-[10px] bg-canvas border border-borderMuted hover:bg-borderLight text-charcoal font-semibold text-sm transition-colors"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>
   );
 }
-

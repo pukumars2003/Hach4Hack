@@ -59,6 +59,8 @@ export interface JoinRequest {
 
 export interface InviteCode {
   id: string;
+  code?: string;
+  code_hash?: string;
   created_at: string;
   expires_at: string;
   revoked_at?: string;

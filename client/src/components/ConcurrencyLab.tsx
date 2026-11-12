@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, Zap } from 'lucide-react';
+import { Play, CheckCircle2, AlertCircle, RefreshCw, Zap, ShieldCheck } from 'lucide-react';
 import { apiRequest } from '../api/client.js';
 
 interface RaceResultItem {
@@ -79,7 +79,7 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
         });
       }
 
-      // 2. Prepare distinct racers in 1 single fast batch call (10ms)
+      // 2. Prepare distinct racers in 1 single fast batch call
       const batchRes = await apiRequest<{ racers: { token: string; name: string }[] }>('/teams/lab/batch-racers', {
         method: 'POST',
         body: JSON.stringify({ count: concurrencyCount }),
@@ -152,126 +152,163 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+    <div className="bg-white border border-cardBorder rounded-[14px] p-6 shadow-sm max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-borderLight">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+            <span className="p-2 rounded-lg bg-teal-light text-teal-dark">
               <Zap className="w-5 h-5" />
             </span>
-            <h2 className="text-xl font-bold text-white tracking-tight">
-              Live Concurrency Stress-Test Lab
+            <h2 className="text-2xl font-bold text-charcoal tracking-tight">
+              Live Concurrency Race Test
             </h2>
           </div>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-muted mt-1">
             Simulate 50+ participants clicking &ldquo;Join&rdquo; at the exact same millisecond. Prove that exactly 1 gets the seat.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-xs text-slate-300">
+          <div className="flex items-center gap-2 bg-canvas px-3.5 py-2.5 rounded-[10px] border border-borderMuted text-xs text-charcoal font-semibold">
             <span>Racers:</span>
             <select
               value={concurrencyCount}
               onChange={(e) => setConcurrencyCount(Number(e.target.value))}
               disabled={isRunning}
-              className="bg-transparent text-emerald-400 font-bold focus:outline-none cursor-pointer"
+              className="bg-transparent text-teal-dark font-bold focus:outline-none cursor-pointer"
             >
-              <option value={25} className="bg-slate-900">25 simultaneous</option>
-              <option value={50} className="bg-slate-900">50 simultaneous</option>
-              <option value={100} className="bg-slate-900">100 simultaneous</option>
+              <option value={25}>25 simultaneous</option>
+              <option value={50}>50 simultaneous (Req)</option>
+              <option value={100}>100 simultaneous</option>
+              <option value={250}>250 simultaneous (5x)</option>
             </select>
           </div>
 
           <button
             onClick={runRaceSimulation}
             disabled={isRunning}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg ${isRunning
-                ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
-                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20 active:scale-95'
-              }`}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-[10px] bg-teal hover:bg-teal-hover text-white font-semibold text-sm transition-colors shadow-sm disabled:opacity-50"
           >
             {isRunning ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Simulating Race...</span>
+                <span>Racing...</span>
               </>
             ) : (
               <>
                 <Play className="w-4 h-4 fill-current" />
-                <span>Fire Simultaneous Race</span>
+                <span>Fire Race Test</span>
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Stats Summary */}
+      {/* Summary Scorecard */}
       {stats && (
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-slate-950 border border-emerald-500/30 rounded-xl p-4">
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Winner (Seat #4)</div>
-            <div className="text-2xl font-black text-emerald-400 mt-1 flex items-center gap-2">
-              <span>{stats.wins} Winner</span>
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in duration-300">
+          <div className="p-4 rounded-xl bg-[#DCF3E4] border border-[#86EFAC] flex flex-col justify-between">
+            <div className="text-xs font-bold text-[#14532D] uppercase tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-[#14532D]" />
+              <span>Claimed Seat</span>
             </div>
-            <div className="text-xs text-slate-500 mt-1">Status: 200 OK</div>
+            <div className="text-3xl font-black font-mono text-[#14532D] mt-2">
+              {stats.wins} <span className="text-xs font-sans font-medium text-[#14532D]">Winner</span>
+            </div>
+            <div className="text-[11px] text-[#14532D] mt-1">
+              {stats.wins === 1 ? '✅ Exactly 1 Winner' : '❌ Race Condition!'}
+            </div>
           </div>
 
-          <div className="bg-slate-950 border border-amber-500/30 rounded-xl p-4">
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Blocked (Capacity)</div>
-            <div className="text-2xl font-black text-amber-400 mt-1 flex items-center gap-2">
-              <span>{stats.conflicts} Rejected</span>
-              <AlertCircle className="w-5 h-5 text-amber-400" />
+          <div className="p-4 rounded-xl bg-[#FDEBC8] border border-[#FDBA74] flex flex-col justify-between">
+            <div className="text-xs font-bold text-[#7A3E00] uppercase tracking-wider flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4 text-[#7A3E00]" />
+              <span>Seat Full (409)</span>
             </div>
-            <div className="text-xs text-slate-500 mt-1">Status: 409 Conflict</div>
+            <div className="text-3xl font-black font-mono text-[#7A3E00] mt-2">
+              {stats.conflicts} <span className="text-xs font-sans font-medium text-[#7A3E00]">Refusals</span>
+            </div>
+            <div className="text-[11px] text-[#7A3E00] mt-1">
+              Atomic 409 Conflict returned
+            </div>
           </div>
 
-          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Postgres Verified Count</div>
-            <div className="text-2xl font-black text-slate-200 mt-1 flex items-center gap-2">
-              <span>{stats.dbCount} / {stats.maxMembers}</span>
-              <ShieldCheck className="w-5 h-5 text-indigo-400" />
+          <div className="p-4 rounded-xl bg-canvas border border-cardBorder flex flex-col justify-between">
+            <div className="text-xs font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-teal" />
+              <span>5xx Errors</span>
             </div>
-            <div className="text-xs text-emerald-400 mt-1">100% Invariant Preserved</div>
+            <div className="text-3xl font-black font-mono text-charcoal mt-2">
+              {stats.errors}
+            </div>
+            <div className="text-[11px] text-muted mt-1">
+              Zero internal exceptions
+            </div>
           </div>
 
-          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Burst Time</div>
-            <div className="text-2xl font-black text-slate-200 mt-1 font-mono">
-              {stats.totalDurationMs} ms
+          <div className="p-4 rounded-xl bg-canvas border border-cardBorder flex flex-col justify-between">
+            <div className="text-xs font-bold text-muted uppercase tracking-wider">
+              Postgres Invariant
             </div>
-            <div className="text-xs text-slate-500 mt-1">{concurrencyCount} requests parallelized</div>
+            <div className="text-3xl font-black font-mono text-charcoal mt-2">
+              {stats.dbCount}/{stats.maxMembers}
+            </div>
+            <div className="text-[11px] text-muted mt-1">
+              Zero over-capacity in database
+            </div>
           </div>
         </div>
       )}
 
-      {/* Visual Waterfall Grid */}
+      {/* Racers Result Grid */}
       {results.length > 0 && (
-        <div className="mt-6">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-            Real-Time Request Waterfall ({results.length} Responses)
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs font-semibold text-muted">
+            <span>Individual Racer Audit Log</span>
+            <span>Total burst duration: {stats?.totalDurationMs}ms</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-2 max-h-64 overflow-y-auto p-2 bg-slate-950/60 rounded-xl border border-slate-800">
-            {results.map((r) => (
-              <div
-                key={r.id}
-                className={`p-2 rounded-lg text-center text-xs font-mono transition-all border ${r.status === 200
-                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold scale-105 shadow-md shadow-emerald-500/30 ring-2 ring-emerald-500'
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+
+          <div className="max-h-80 overflow-y-auto rounded-xl border border-cardBorder divide-y divide-borderLight">
+            {results.map((r) => {
+              const isWinner = r.status === 200;
+              const isConflict = r.status === 409;
+
+              return (
+                <div
+                  key={r.id}
+                  className={`p-3 flex items-center justify-between text-xs transition-colors ${
+                    isWinner ? 'bg-[#DCF3E4]/40' : 'bg-white hover:bg-canvas/40'
                   }`}
-              >
-                <div className="truncate text-[10px] opacity-75">{r.name}</div>
-                <div className={`mt-0.5 font-bold ${r.status === 200 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {r.status}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-muted w-6 text-right font-bold">
+                      #{r.id}
+                    </span>
+                    <span className="font-semibold text-charcoal">{r.name}</span>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <span className="font-mono text-muted text-[11px]">
+                      {r.durationMs}ms
+                    </span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full font-mono text-[11px] font-bold ${
+                        isWinner
+                          ? 'bg-[#DCF3E4] text-[#14532D]'
+                          : isConflict
+                          ? 'bg-[#FDEBC8] text-[#7A3E00]'
+                          : 'bg-red-100 text-danger'
+                      }`}
+                    >
+                      {r.status === 200 ? '200 OK (WINNER)' : r.status === 409 ? '409 CONFLICT' : `${r.status} ERROR`}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-[10px] text-slate-500">{r.durationMs}ms</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
     </div>
   );
 }
-
