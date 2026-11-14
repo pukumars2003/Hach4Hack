@@ -10,7 +10,8 @@ import {
   RequestJoinModal,
   KeyboardHelpModal,
 } from './components/Modals.js';
-import { AuthModal } from './components/AuthModal.js';
+import { AdminDashboard } from './components/AdminDashboard.js';
+
 import { useSSE } from './hooks/useSSE.js';
 import { api, getAuthToken, clearAuthToken } from './api/client.js';
 import { User, Team, TeamDetail as ITeamDetail } from './types.js';
@@ -201,7 +202,8 @@ export function App() {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    
+return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentUser, userMembership, selectedTeamId]);
 
   // Handlers
@@ -221,14 +223,44 @@ export function App() {
     }
   };
 
-  const handleLogout = () => {
+  if (currentUser && (currentUser as any).role === 'admin') {
+    return <AdminDashboard onLogout={handleLogout} />;
+  }
+
+  // If no user is logged in, show only the login modal (no guest dashboard)
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex flex-col bg-canvas text-charcoal font-sans">
+        <AuthModal
+          isOpen={true}
+          onClose={() => {}}
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            loadUserAndHackathons();
+            showToast(`Signed in as ${user.name}`, 'success');
+          }}
+        />
+      </div>
+    );
+
+  // If logged in but not admin, show access denied
+  if (currentUser && (currentUser as any).role !== 'admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-canvas text-charcoal font-sans">
+        <p>Access restricted to admins only.</p>
+      </div>
+    );
+  }
+  }
+
     clearAuthToken();
     setCurrentUser(null);
     setUserMembership(null);
     showToast('Signed out successfully.', 'info');
   };
 
-  return (
+  
+return (
     <div className="min-h-screen flex flex-col bg-canvas text-charcoal font-sans">
       {/* Toast Notification Banner (Exact design from TeamForge UI Screens) */}
       {notification && (

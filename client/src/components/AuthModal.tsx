@@ -13,7 +13,8 @@ export function AuthModal({
   onLoginSuccess: (user: User) => void;
 }) {
   const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState('user00001@demo.test');
+  const [email, setEmail] = useState('adminbro');
+  const [password, setPassword] = useState('hireme');
   const [password, setPassword] = useState('Demo@12345');
   const [name, setName] = useState('Ajay');
   const [skills, setSkills] = useState('React, TypeScript, Postgres');

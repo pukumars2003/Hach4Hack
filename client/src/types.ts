@@ -7,6 +7,15 @@ export interface User {
   interests: string[];
   timezone_offset_minutes: number;
   discovery_enabled: boolean;
+  role?: string; // added optional role for admin/user distinction
+  id: string;
+  email: string;
+  name: string;
+  avatar_url?: string;
+  skills: string[];
+  interests: string[];
+  timezone_offset_minutes: number;
+  discovery_enabled: boolean;
 }
 
 export interface TeamMember {

@@ -3,10 +3,12 @@
 > **Hundreds of participants clicking "Join" at the exact same millisecond. Exactly one gets the last seat.**  
 > Built for the **Hack4Hack Concurrency Championship 2026** at **5x required scale (50,000 Users, 10,000 Teams, 250+ Concurrent Racers)**.
 
-[![CI](https://github.com/ajay/race-proof-team-formation/actions/workflows/ci.yml/badge.svg)](https://github.com/ajay/race-proof-team-formation/actions)
+[![CI](https://github.com/pukumars2003/Hach4Hack/actions/workflows/ci.yml/badge.svg)](https://github.com/pukumars2003/Hach4Hack/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> 📖 **Quick Link:** For a complete walkthrough on how to run, test, and verify the platform, see the [Step-by-Step Execution Guide](file:///d:/Prj/Hach4Hack/STEP_BY_STEP_GUIDE.md).
+🌐 **Live app:** [raceproof-app.onrender.com](https://raceproof-app.onrender.com)
+
+> 📖 **Quick Link:** For a complete walkthrough on how to run, test, and verify the platform, see the [Step-by-Step Execution Guide](STEP_BY_STEP_GUIDE.md).
 
 ---
 
@@ -28,7 +30,7 @@
 | **Teammate Suggestions** | Skill + timezone scoring | **Formula scoring with explicit breakdown** | ✅ Proven |
 | **Test Suite** | At least 20 API tests in CI | **33 tests passing in Vitest & GitHub Actions** | ✅ Proven |
 | **Frontend UI** | Phone & keyboard-friendly | **React 18 + Tailwind (TeamForge UI)** | ✅ Proven |
-| **Deployment** | Free-tier live URL | **render.yaml / Docker Compose** | ✅ Ready |
+| **Deployment** | Free-tier live URL | [Live on Render](https://raceproof-app.onrender.com) | ✅ Live |
 | **Bonus: Rollback UI** | Optimistic UI with rollback | **Instant toast rollback on 409 rejection** | ✅ Proven |
 | **Bonus: Chaos Test** | Server kill mid-transaction | **`npm run test:chaos` (SIGKILL resilience)** | ✅ Proven |
 
@@ -60,7 +62,8 @@ Browser ──> Render (React + Fastify API + SSE, Docker) ──> Render Postgr
 2. In Render, choose **New → Blueprint** (not **New Web Service**) and select `pukumars2003/Hach4Hack`
    on branch `master`. Render reads the root `render.yaml`, builds `server/Dockerfile`, and provisions
    `raceproof-app` and `raceproof-db`.
-3. Wait for the first deployment, then open the `raceproof-app` URL. The client and API share the same
+3. Wait for the first deployment, then open [raceproof-app.onrender.com](https://raceproof-app.onrender.com).
+   The client and API share the same
    origin, so no client API URL or CORS configuration is needed. The server runs database migrations on
    startup.
 

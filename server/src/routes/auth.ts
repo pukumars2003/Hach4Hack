@@ -21,6 +21,9 @@ const loginSchema = z.object({
 });
 
 export const authRoutes: FastPluginAsync = async (app: FastifyInstance) => {
+  // Ensure role column exists (idempotent)
+  await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user'`);
+
   // POST /api/auth/register
   app.post('/register', async (req, reply) => {
     const parseResult = registerSchema.safeParse(req.body);
@@ -45,19 +48,15 @@ export const authRoutes: FastPluginAsync = async (app: FastifyInstance) => {
 
     const passwordHash = await hashPassword(password);
     const result = await query(
-      `INSERT INTO users (email, password_hash, name, avatar_url, skills, interests, timezone_offset_minutes, discovery_enabled)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, email, name, avatar_url, skills, interests, timezone_offset_minutes, discovery_enabled, created_at`,
-      [email, passwordHash, name, avatarUrl || null, skills, interests, timezoneOffsetMinutes, discoveryEnabled]
+      `INSERT INTO users (email, password_hash, name, avatar_url, skills, interests, timezone_offset_minutes, discovery_enabled, role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, email, name, avatar_url, skills, interests, timezone_offset_minutes, discovery_enabled, created_at, role`,
+      [email, passwordHash, name, avatarUrl || null, skills, interests, timezoneOffsetMinutes, discoveryEnabled, 'user']
     );
-
     const user = result.rows[0];
-    const token = app.jwt.sign({ id: user.id, email: user.email, name: user.name });
+    const token = app.jwt.sign({ id: user.id, email: user.email, name: user.name, role: user.role });
 
-    return reply.status(201).send({
-      user,
-      token,
-    });
+    return reply.status(201).send({ user, token });
   });
 
   // POST /api/auth/login
@@ -72,41 +71,32 @@ export const authRoutes: FastPluginAsync = async (app: FastifyInstance) => {
 
     const { email, password } = parseResult.data;
     const result = await query(
-      `SELECT id, email, password_hash, name, avatar_url, skills, interests, timezone_offset_minutes, discovery_enabled, created_at
+      `SELECT id, email, password_hash, name, avatar_url, role, skills, interests, timezone_offset_minutes, discovery_enabled, created_at
        FROM users WHERE email = $1`,
       [email]
     );
 
     if (result.rowCount === 0) {
-      return reply.status(401).send({
-        code: 'invalid_credentials',
-        message: 'Invalid email or password.',
-      });
+      return reply.status(401).send({ code: 'invalid_credentials', message: 'Invalid email or password.' });
     }
 
     const userRow = result.rows[0];
     const isValid = await verifyPassword(password, userRow.password_hash);
     if (!isValid) {
-      return reply.status(401).send({
-        code: 'invalid_credentials',
-        message: 'Invalid email or password.',
-      });
+      return reply.status(401).send({ code: 'invalid_credentials', message: 'Invalid email or password.' });
     }
 
-    const token = app.jwt.sign({ id: userRow.id, email: userRow.email, name: userRow.name });
+    const token = app.jwt.sign({ id: userRow.id, email: userRow.email, name: userRow.name, role: userRow.role });
     const { password_hash, ...user } = userRow;
 
-    return reply.send({
-      user,
-      token,
-    });
+    return reply.send({ user, token });
   });
 
   // GET /api/auth/me
   app.get('/me', { preHandler: [requireAuth] }, async (req, reply) => {
     const userId = (req.user as any).id;
     const userResult = await query(
-      `SELECT id, email, name, avatar_url, skills, interests, timezone_offset_minutes, discovery_enabled, created_at
+      `SELECT id, email, name, avatar_url, role, skills, interests, timezone_offset_minutes, discovery_enabled, created_at
        FROM users WHERE id = $1`,
       [userId]
     );
@@ -115,7 +105,6 @@ export const authRoutes: FastPluginAsync = async (app: FastifyInstance) => {
       return reply.status(404).send({ code: 'user_not_found', message: 'User not found' });
     }
 
-    // Get current team membership (if any)
     const membershipResult = await query(
       `SELECT tm.team_id, tm.role, tm.joined_at, t.name as team_name, t.hackathon_id
        FROM team_members tm
@@ -124,7 +113,6 @@ export const authRoutes: FastPluginAsync = async (app: FastifyInstance) => {
       [userId]
     );
 
-    // Get current pending requests
     const pendingResult = await query(
       `SELECT jr.id, jr.team_id, jr.status, jr.created_at, t.name as team_name
        FROM join_requests jr
@@ -140,5 +128,5 @@ export const authRoutes: FastPluginAsync = async (app: FastifyInstance) => {
     });
   });
 };
-type FastPluginAsync = FastifyPluginAsync;
 
+type FastPluginAsync = FastifyPluginAsync;
