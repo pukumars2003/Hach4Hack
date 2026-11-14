@@ -32,37 +32,59 @@ const joinLatency  = new Trend('join_latency', true);
 const joinErrors   = new Counter('join_errors');
 
 // ── Test configuration ────────────────────────────────────────────────────────
-export const options = {
-  scenarios: {
-    // Scenario 1: Board load — 100 concurrent users (Organizer requirement) & 500 peak (5x target)
-    board_read: {
-      executor: 'ramping-vus',
-      startVUs: 0,
-      stages: [
-        { duration: '5s',  target: 100 }, // Ramp to 100 VUs (Organizer requirement)
-        { duration: '15s', target: 100 }, // Hold 100 VUs (p95 < 200ms benchmark)
-        { duration: '10s', target: 500 }, // Ramp to 500 VUs (5x scale benchmark)
-        { duration: '5s',  target: 0   }, // Ramp down
-      ],
-      exec: 'boardRead',
-    },
-    // Scenario 2: Authenticated join requests (needs tokens.json)
-    join_race: {
-      executor: 'constant-vus',
-      vus: tokens.length > 0 ? Math.min(50, tokens.length) : 0,
-      duration: '30s',
-      startTime: '10s', // start after board warms up
-      exec: 'joinRace',
-    },
-  },
-  thresholds: {
-    // Organizer requirement: p95 < 200ms; our 5x target: p95 < 20ms
-    'board_latency': ['p(95)<200', 'p(99)<300'],
-    'http_req_failed': ['rate<0.01'],
-    // Join race: allow 409 (conflict) — only errors we reject are 5xx
-    'join_errors': ['count<5'],
-  },
-};
+const targetIterations = __ENV.ITERATIONS
+  ? parseInt(__ENV.ITERATIONS, 10)
+  : __ENV.ONE_LAKH === 'true'
+  ? 100000
+  : null;
+
+export const options = targetIterations
+  ? {
+      scenarios: {
+        one_lakh_benchmark: {
+          executor: 'shared-iterations',
+          vus: parseInt(__ENV.VUS || '500', 10),
+          iterations: targetIterations,
+          maxDuration: '3m',
+          exec: 'boardRead',
+        },
+      },
+      thresholds: {
+        board_latency: ['p(95)<200', 'p(99)<300'],
+        http_req_failed: ['rate<0.01'],
+      },
+    }
+  : {
+      scenarios: {
+        // Scenario 1: Board load — 100 concurrent users (Organizer requirement) & 500 peak (5x target)
+        board_read: {
+          executor: 'ramping-vus',
+          startVUs: 0,
+          stages: [
+            { duration: '5s', target: 100 }, // Ramp to 100 VUs (Organizer requirement)
+            { duration: '15s', target: 100 }, // Hold 100 VUs (p95 < 200ms benchmark)
+            { duration: '10s', target: 500 }, // Ramp to 500 VUs (5x scale benchmark)
+            { duration: '5s', target: 0 }, // Ramp down
+          ],
+          exec: 'boardRead',
+        },
+        // Scenario 2: Authenticated join requests (needs tokens.json)
+        join_race: {
+          executor: 'constant-vus',
+          vus: tokens.length > 0 ? Math.min(50, tokens.length) : 0,
+          duration: '30s',
+          startTime: '10s', // start after board warms up
+          exec: 'joinRace',
+        },
+      },
+      thresholds: {
+        // Organizer requirement: p95 < 200ms; our 5x target: p95 < 20ms
+        board_latency: ['p(95)<200', 'p(99)<300'],
+        http_req_failed: ['rate<0.01'],
+        // Join race: allow 409 (conflict) — only errors we reject are 5xx
+        join_errors: ['count<5'],
+      },
+    };
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 
@@ -109,10 +131,10 @@ export function joinRace() {
     const target = teams[Math.floor(Math.random() * teams.length)];
     if (!target) return;
 
-    // Try request-join (no invite code needed)
+    // Try request-join (submits pending join request)
     const joinRes = http.post(
-      `${BASE_URL}/api/teams/${target.id}/request-join`,
-      JSON.stringify({ message: 'k6 load test request' }),
+      `${BASE_URL}/api/requests`,
+      JSON.stringify({ teamId: target.id, message: 'k6 load test request' }),
       {
         headers: {
           Authorization: `Bearer ${t.token}`,

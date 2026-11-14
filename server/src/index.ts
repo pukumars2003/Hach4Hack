@@ -38,10 +38,12 @@ export async function buildApp() {
     secret: config.jwtSecret,
   });
 
-  // 3. High-Throughput Rate Limiting (2,000 req/min headroom for 50-100 racers simulation & load testing)
+  // 3. High-Throughput Rate Limiting (configurable for extreme 100k+ load tests)
+  const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX || '500000', 10);
   await app.register(rateLimit, {
-    max: 2000,
+    max: rateLimitMax,
     timeWindow: '1 minute',
+    allowList: process.env.DISABLE_RATE_LIMIT === 'true' ? ['127.0.0.1', '::1', 'localhost'] : undefined,
     keyGenerator: (req) => {
       const user = (req as any).user;
       return user ? user.id : req.ip;

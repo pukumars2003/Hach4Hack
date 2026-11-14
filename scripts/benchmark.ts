@@ -21,16 +21,18 @@ export async function runLoadTest(options: {
   url?: string;
   concurrentVUs?: number;
   durationSeconds?: number;
+  maxRequests?: number;
 }): Promise<BenchmarkStats> {
   const targetUrl = new URL(options.url || 'http://localhost:3000/api/teams?limit=20');
   const VUs = options.concurrentVUs || 100;
   const duration = options.durationSeconds || 10;
+  const maxRequests = options.maxRequests;
 
   console.log('====================================================');
   console.log(`BOARD ENDPOINT HIGH-CONCURRENCY LOAD TEST`);
   console.log(`Target: ${targetUrl.toString()}`);
   console.log(`Virtual Users: ${VUs} concurrent workers`);
-  console.log(`Duration: ${duration} seconds`);
+  console.log(`Duration: ${duration} seconds ${maxRequests ? `(or up to ${maxRequests.toLocaleString()} requests)` : ''}`);
   console.log('====================================================');
 
   // Pre-flight check: ensure target server is up
@@ -64,6 +66,10 @@ export async function runLoadTest(options: {
 
   async function worker() {
     while (running && Date.now() < testEndTime) {
+      if (maxRequests && latencies.length >= maxRequests) {
+        running = false;
+        break;
+      }
       const reqStart = process.hrtime.bigint();
       try {
         await new Promise<void>((resolve, reject) => {
@@ -152,7 +158,8 @@ export async function runLoadTest(options: {
 if (process.argv[1].endsWith('benchmark.ts') || process.argv[1].endsWith('benchmark.js')) {
   const vus = process.argv[2] ? parseInt(process.argv[2], 10) : 100;
   const dur = process.argv[3] ? parseInt(process.argv[3], 10) : 10;
-  runLoadTest({ concurrentVUs: vus, durationSeconds: dur })
+  const maxReqs = process.argv[4] ? parseInt(process.argv[4], 10) : undefined;
+  runLoadTest({ concurrentVUs: vus, durationSeconds: dur, maxRequests: maxReqs })
     .then(() => process.exit(0))
     .catch((err) => {
       console.error(err);
