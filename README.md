@@ -47,33 +47,31 @@ docker compose up --build
 
 ---
 
-## ☁️ Deploy (Vercel client + Render API)
+## ☁️ Deploy (Render Docker + Postgres)
 
-Vercel hosts static frontends and short-lived serverless functions. It **cannot** run the Fastify API, a
-Dockerfile, or the PostgreSQL `LISTEN/NOTIFY` + SSE loop this app depends on. The supported split is:
+The simplest hosted setup is one Docker service for the React client, Fastify API, and SSE endpoint, plus
+Render-managed PostgreSQL:
 
 ```
-Browser ──> Vercel (React/Vite static) ──> Render (Fastify API + SSE + Postgres, Docker)
+Browser ──> Render (React + Fastify API + SSE, Docker) ──> Render Postgres
 ```
 
-1. **Push this repo to GitHub.**
-2. **Render (API + Postgres):** New → Blueprint → pick the repo. It reads `render.yaml`, builds
-   `server/Dockerfile`, provisions `raceproof-db`, and runs migrations on boot. Set `CORS_ORIGIN` to your
-   Vercel domain (or `*` while testing). The service URL looks like `https://raceproof-api.onrender.com`.
-3. **Vercel (client):** Import the same repo, set **Root Directory = `client`**, Framework **Vite**,
-   Build `npm run build`, Output `dist`. Add environment variable
-   `VITE_API_BASE_URL=https://raceproof-api.onrender.com` (no trailing slash, no `/api`).
-   `client/vercel.json` already rewrites unknown routes to `index.html` for the SPA.
-4. **Optional GitHub Actions deploy:** add repo secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
-   `VERCEL_PROJECT_ID` and repo variable `VITE_API_BASE_URL`; `.github/workflows/deploy-vercel.yml` builds
-   and deploys the client on every push. Render also auto-deploys the API from `render.yaml`.
+1. Push the `master` branch to GitHub.
+2. In Render, choose **New → Blueprint** (not **New Web Service**) and select `pukumars2003/Hach4Hack`
+   on branch `master`. Render reads the root `render.yaml`, builds `server/Dockerfile`, and provisions
+   `raceproof-app` and `raceproof-db`.
+3. Wait for the first deployment, then open the `raceproof-app` URL. The client and API share the same
+   origin, so no client API URL or CORS configuration is needed. The server runs database migrations on
+   startup.
 
-The client sends `Authorization: Bearer` to the API origin and opens SSE at
-`{VITE_API_BASE_URL}/api/realtime/stream`; both work cross-origin with `CORS_ORIGIN=*`. The API serves JSON
-only in this split (the client is on Vercel), which is why `server/Dockerfile` builds the server alone.
+If creating a service manually instead of using the Blueprint, choose **Docker** as the environment,
+leave Root Directory empty, and set Dockerfile path to `server/Dockerfile`. You must also provide
+`DATABASE_URL` and `JWT_SECRET`, and set the health check path to `/health`; the Blueprint wires these
+up automatically.
 
-> The monolith path (Fastify serving the built client) still works for local Docker Compose and for a
-> single-service Render/VPS deploy; the split above is only needed when the client is on Vercel.
+The Vercel static-client setup remains optional. It requires a separate API origin and
+`VITE_API_BASE_URL`; it is not needed for this single-container deployment. The local Docker Compose
+setup also remains available with `docker compose up --build`.
 
 ---
 

@@ -7,10 +7,11 @@ COPY package.json package-lock.json ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
 
-RUN npm install --workspace=server
+RUN npm ci
 
 COPY server/ ./server/
-RUN npm run build --workspace=server
+COPY client/ ./client/
+RUN npm run build --workspace=server && npm run build --workspace=client
 
 FROM node:22-alpine AS runner
 
@@ -21,11 +22,11 @@ COPY package.json package-lock.json ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
 
-RUN npm install --workspace=server --omit=dev
+RUN npm ci --workspace=server --omit=dev
 
 COPY --from=builder /app/server/dist ./server/dist
-COPY server/src/db/migrations ./server/dist/db/migrations
+COPY --from=builder /app/client/dist ./client/dist
 
-EXPOSE 3000
+EXPOSE 10000
 
 CMD ["node", "server/dist/index.js"]
