@@ -29,8 +29,11 @@ export async function query<T extends pg.QueryResultRow = any>(
       console.log(`[SQL ${duration}ms]`, text.replace(/\s+/g, ' ').trim());
     }
     return res;
-  } catch (error) {
-    console.error(`[SQL Error in query]: ${text}`, error);
+  } catch (error: any) {
+    // Suppress console spam for handled constraint violations (23505 unique, 23514 bounds check)
+    if (process.env.DEBUG_SQL === 'true' || (error.code !== '23505' && error.code !== '23514')) {
+      console.error(`[SQL Error ${error.code}]:`, error.message);
+    }
     throw error;
   }
 }

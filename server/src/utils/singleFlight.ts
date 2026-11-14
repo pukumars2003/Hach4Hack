@@ -49,7 +49,16 @@ export class SingleFlightCache {
     return promise;
   }
 
+  private lastInvalidate = 0;
+
   public invalidate(prefix?: string) {
+    const now = Date.now();
+    // Throttle complete cache wipes to at most once per 500ms under extreme write bursts
+    if (now - this.lastInvalidate < 500) {
+      return;
+    }
+    this.lastInvalidate = now;
+
     if (!prefix) {
       this.cache.clear();
       return;

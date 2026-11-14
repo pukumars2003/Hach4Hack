@@ -140,6 +140,7 @@ CREATE INDEX IF NOT EXISTS idx_idempotency_ttl ON idempotency_keys (created_at);
 
 -- 10. Performance Indexes
 CREATE INDEX IF NOT EXISTS idx_teams_board_cursor ON teams (hackathon_id, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_teams_global_cursor ON teams (created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_team_members_lookup ON team_members (team_id, joined_at ASC);
 CREATE INDEX IF NOT EXISTS idx_users_discovery ON users (discovery_enabled, timezone_offset_minutes) WHERE discovery_enabled = true;
 
