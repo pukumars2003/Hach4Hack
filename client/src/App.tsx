@@ -253,11 +253,13 @@ return () => window.removeEventListener('keydown', handleKeyDown);
   }
   }
 
+const handleLogout = () => {
     clearAuthToken();
     setCurrentUser(null);
     setUserMembership(null);
     showToast('Signed out successfully.', 'info');
   };
+
 
   
 return (
