@@ -18,7 +18,10 @@ export const config = {
   database: {
     connectionString:
       process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/team_formation',
-    max: parseInt(process.env.PG_POOL_MAX || '100', 10),
+    // Set per host. A free-tier Postgres often caps connections below 100, and
+    // the app also holds a dedicated LISTEN connection plus seed/test processes.
+    // Default to a small pool that fits any plan; raise it on a dedicated box.
+    max: parseInt(process.env.PG_POOL_MAX || '20', 10),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 15000,
   },

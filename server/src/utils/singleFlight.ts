@@ -109,44 +109,48 @@ export class SingleFlightCache {
    *
    * Entries are tagged with the version they were computed under, so an
    * invalidation that lands while a query is in flight cannot be overwritten by
-   * the older result when that query finally resolves.
+   * the older result when that query finally resolves. In-flight work is keyed by
+   * `key@version` for the same reason: a caller that arrives after a write must
+   * not join a query that started before it, or it would be handed the pre-write
+   * board even though that result is never stored in the cache.
    */
   public async do<T>(key: string, fn: () => Promise<T>): Promise<T> {
     const now = Date.now();
+    const version = this.version;
 
     // 1. Check TTL cache
     const existing = this.cache.get(key);
-    if (existing && existing.version === this.version && existing.expiresAt > now) {
+    if (existing && existing.version === version && existing.expiresAt > now) {
       return existing.data as T;
     }
 
-    // 2. Check if identical query is currently in-flight
-    const flight = this.inFlight.get(key);
+    // 2. Check if an identical query is in flight under the current version.
+    const flightKey = `${key}@${version}`;
+    const flight = this.inFlight.get(flightKey);
     if (flight) {
       return flight as Promise<T>;
     }
 
     // 3. Initiate single-flight execution
-    const versionAtStart = this.version;
     const promise = (async () => {
       try {
         const result = await fn();
         // A write that landed during the query wins: do not repopulate.
-        if (versionAtStart === this.version) {
+        if (version === this.version) {
           if (this.cache.size >= this.maxEntries) this.prune(this.cache);
           this.cache.set(key, {
             data: result,
             expiresAt: Date.now() + this.ttlMs,
-            version: versionAtStart,
+            version,
           });
         }
         return result;
       } finally {
-        this.inFlight.delete(key);
+        this.inFlight.delete(flightKey);
       }
     })();
 
-    this.inFlight.set(key, promise);
+    this.inFlight.set(flightKey, promise);
     return promise;
   }
 
