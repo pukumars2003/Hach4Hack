@@ -47,7 +47,7 @@ RETURNING member_count;
 | **PostgreSQL-Transactional Idempotency** | Redis Distributed Lock | Redis locks create a split-brain vulnerability: a server crash between Redis release and DB commit allows duplicate retries. In-Postgres storage guarantees atomic consistency. |
 | **SSE via `LISTEN/NOTIFY`** | WebSockets / Outbox table | Eliminates dual-write bugs. Postgres delivers `NOTIFY` **only upon transaction COMMIT**. SSE reconnects natively and passes through free-tier HTTP/2 proxies. |
 | **Keyset Cursor Pagination** | `OFFSET / LIMIT` | At 10,000 teams, `OFFSET 9500` scans 9,520 rows. Keyset pagination `(created_at, id) < ($t, $id)` uses an index scan in **< 1 ms**. |
-| **Single-Flight Coalescing Cache** | Redis Caching Cluster | In-memory 1-second single-flight deduplication handles thundering herds without external network hops, keeping p95 latency under **20 ms**. |
+| **Single-Flight Coalescing Cache** | Redis Caching Cluster | In-memory 1-second single-flight deduplication handles thundering herds without external network hops. Only the read-only board collection is cached (5 s fresh + 30 s stale-while-revalidate); join, accept and team-detail reads always hit PostgreSQL, and board responses are `Cache-Control: no-store` so browsers cannot hold a pre-join copy. Every write invalidates immediately and bumps a version that in-flight queries are checked against, so worst-case staleness is ~0 ms for every client, not just SSE subscribers (whose invalidation still runs before the event is broadcast). The 5 s TTL only bounds staleness on a board with no writes at all. |
 
 ---
 

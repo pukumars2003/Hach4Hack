@@ -4,6 +4,7 @@ import { buildApp } from '../../src/index.js';
 import { pool, query } from '../../src/db/pool.js';
 import { runMigrations } from '../../src/db/migrate.js';
 import { generateInviteCode } from '../../src/utils/crypto.js';
+import { config } from '../../src/config.js';
 
 describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
   let app: FastifyInstance;
@@ -467,6 +468,110 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
     const data = JSON.parse(res.body);
     expect(data.status).toBe('pass');
     expect(data.database.status).toBe('healthy');
+  });
+
+  // 14. Raw HTTP response cache (bypasses Fastify on hits)
+  it('26. Board cache hits at the HTTP layer keep JSON, CORS and content-length headers', async () => {
+    const address = await app.listen({ port: 0, host: '127.0.0.1' });
+    const url = `${address}/api/teams?limit=20&_cacheProbe=${Date.now()}`;
+
+    const first = await fetch(url);
+    const firstBody = await first.text();
+    expect(first.status).toBe(200);
+
+    // The second identical request is served from the in-process HTTP cache.
+    const second = await fetch(url);
+    const secondBody = await second.text();
+
+    expect(second.status).toBe(200);
+    expect(second.headers.get('x-cache')).toBe('HIT');
+    expect(second.headers.get('content-type')).toContain('application/json');
+    expect(second.headers.get('access-control-allow-origin')).toBe(config.corsOrigin);
+    expect(second.headers.get('content-length')).toBe(String(Buffer.byteLength(secondBody)));
+    expect(secondBody).toBe(firstBody);
+  });
+
+  // 15. Cache correctness under a write
+  it('27. A join is visible on the next board read: no stale copy is served after a commit', async () => {
+    // Two fresh users so the seat maths is deterministic on a dedicated team.
+    const stamp = Date.now();
+    const leaderRes = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: `cache_leader_${stamp}@test.com`,
+        password: 'Password123!',
+        name: 'Cache Leader',
+        skills: ['React'],
+        interests: [],
+        timezoneOffsetMinutes: 0,
+      },
+    });
+    const leaderToken = JSON.parse(leaderRes.body).token;
+
+    const joinerRes = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: `cache_joiner_${stamp}@test.com`,
+        password: 'Password123!',
+        name: 'Cache Joiner',
+        skills: ['Node'],
+        interests: [],
+        timezoneOffsetMinutes: 0,
+      },
+    });
+    const joinerToken = JSON.parse(joinerRes.body).token;
+
+    const teamRes = await app.inject({
+      method: 'POST',
+      url: '/api/teams',
+      headers: { authorization: `Bearer ${leaderToken}` },
+      payload: { name: `Cache Watch Team ${stamp}`, hackathonId, maxMembers: 4 },
+    });
+    expect(teamRes.statusCode).toBe(201);
+    const teamId = JSON.parse(teamRes.body).id;
+
+    const boardUrl = `/api/teams?limit=20&_cacheProbe=${stamp}`;
+    const before = JSON.parse((await app.inject({ method: 'GET', url: boardUrl })).body);
+    const beforeTeam = before.teams.find((t: any) => t.id === teamId);
+    expect(beforeTeam.member_count).toBe(1);
+
+    // Prime the raw HTTP cache so the next read would be a HIT without invalidation.
+    const primed = await app.inject({ method: 'GET', url: boardUrl });
+    expect(primed.headers['x-cache']).toBeDefined();
+
+    // The join commits and notifies inside its transaction.
+    const joinRes = await app.inject({
+      method: 'POST',
+      url: '/api/requests',
+      headers: { authorization: `Bearer ${joinerToken}` },
+      payload: { teamId },
+    });
+    expect(joinRes.statusCode).toBe(201);
+    const requestId = JSON.parse(joinRes.body).request?.id ?? JSON.parse(joinRes.body).id;
+
+    // The leader accepts, which is what actually consumes the seat.
+    const acceptRes = await app.inject({
+      method: 'POST',
+      url: `/api/requests/${requestId}/accept`,
+      headers: { authorization: `Bearer ${leaderToken}` },
+    });
+    expect(acceptRes.statusCode).toBe(200);
+
+    // Immediately read the board again: it must show the new member count.
+    const after = JSON.parse((await app.inject({ method: 'GET', url: boardUrl })).body);
+    const afterTeam = after.teams.find((t: any) => t.id === teamId);
+    expect(afterTeam.member_count).toBe(2);
+  });
+
+  // 16. Browser caching of the board
+  it('28. Board responses are not stored by the browser cache', async () => {
+    const res = await app.inject({ method: 'GET', url: `/api/teams?limit=20&_cacheProbe=${Date.now()}` });
+    expect(res.statusCode).toBe(200);
+    const cacheControl = (res.headers['cache-control'] || '').toLowerCase();
+    expect(cacheControl).toContain('no-store');
+    expect(cacheControl).not.toContain('max-age');
   });
 });
 

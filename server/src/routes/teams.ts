@@ -5,6 +5,8 @@ import { requireAuth } from '../middleware/auth.js';
 import { withIdempotency, IdempotencyError } from '../middleware/idempotency.js';
 import { generateInviteCode, hashInviteCode } from '../utils/crypto.js';
 import { boardCache } from '../utils/singleFlight.js';
+import { boardQuerySchema, boardCacheKey, fetchBoard, BOARD_RESPONSE_HEADERS } from '../services/board.js';
+import { config } from '../config.js';
 
 const createTeamSchema = z.object({
   hackathonId: z.string().uuid(),
@@ -59,101 +61,53 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
   // GET /api/teams (Board with Keyset Pagination + 1s Single-Flight Cache)
   app.get('/', async (req, reply) => {
-    const qSchema = z.object({
-      hackathonId: z.string().uuid().optional(),
-      cursorCreatedAt: z.string().optional(),
-      cursorId: z.string().uuid().optional(),
-      limit: z.coerce.number().int().min(1).max(100).default(20),
-      search: z.string().optional(),
-      status: z.enum(['all', 'forming', 'ready', 'full']).default('all'),
-      skill: z.string().optional(),
-    });
+    // Benchmark/diagnostic escape hatch: BOARD_CACHE_DISABLED=1 skips both cache
+    // layers (the raw HTTP cache and the route-level serialized/single-flight
+    // cache), so every read is served by PostgreSQL. Used by the cold benchmark.
+    if (!config.boardCacheEnabled) {
+      const parsedCold = boardQuerySchema.safeParse(req.query);
+      if (!parsedCold.success) {
+        return reply.status(400).send({ code: 'validation_error', errors: parsedCold.error.errors });
+      }
+      const data = await fetchBoard(parsedCold.data);
+      return reply
+        .header('X-Cache', 'BYPASS')
+        .header('Cache-Control', 'no-store')
+        .type('application/json')
+        .send(JSON.stringify(data));
+    }
 
-    const parsed = qSchema.safeParse(req.query);
+    // ── Ultra-fast path ────────────────────────────────────────────────────
+    // Serve the already-serialized response for this exact URL. This skips
+    // Zod validation, the async single-flight lookup, and JSON.stringify on
+    // every cache hit (the common case under real-time board polling/load).
+    const fastKey = req.url;
+    const cachedBody = boardCache.getSerialized(fastKey);
+    if (cachedBody !== undefined) {
+      return reply
+        .header('X-Cache', 'HIT')
+        .header('Cache-Control', 'no-store')
+        .type('application/json')
+        .send(cachedBody);
+    }
+
+    const parsed = boardQuerySchema.safeParse(req.query);
     if (!parsed.success) {
       return reply.status(400).send({ code: 'validation_error', errors: parsed.error.errors });
     }
 
-    const { hackathonId, cursorCreatedAt, cursorId, limit, search, status, skill } = parsed.data;
+    const version = boardCache.getVersion();
+    const data = await boardCache.do(boardCacheKey(parsed.data), () => fetchBoard(parsed.data));
 
-    // Cache key for single-flight coalesce
-    const cacheKey = `board:${hackathonId || 'all'}:${cursorCreatedAt || ''}:${cursorId || ''}:${limit}:${search || ''}:${status}:${skill || ''}`;
+    // Serialize once, then reuse across every request in the TTL window.
+    const body = JSON.stringify(data);
+    boardCache.setSerialized(fastKey, body, version, BOARD_RESPONSE_HEADERS);
 
-    const data = await boardCache.do(cacheKey, async () => {
-      const conditions: string[] = [];
-      const values: any[] = [];
-      let idx = 1;
-
-      if (hackathonId) {
-        conditions.push(`t.hackathon_id = $${idx++}`);
-        values.push(hackathonId);
-      }
-
-      if (cursorCreatedAt && cursorId) {
-        conditions.push(`(t.created_at, t.id) < ($${idx++}, $${idx++})`);
-        values.push(cursorCreatedAt, cursorId);
-      }
-
-      if (search && search.trim() !== '') {
-        conditions.push(`(t.name ILIKE $${idx} OR t.description ILIKE $${idx})`);
-        values.push(`%${search.trim()}%`);
-        idx++;
-      }
-
-      if (skill && skill.trim() !== '') {
-        conditions.push(`$${idx++} = ANY(t.needed_skills)`);
-        values.push(skill.trim());
-      }
-
-      if (status === 'full') {
-        conditions.push(`t.member_count >= t.max_members`);
-      } else if (status === 'forming') {
-        conditions.push(`t.member_count < h.min_team_size`);
-      } else if (status === 'ready') {
-        conditions.push(`t.member_count >= h.min_team_size AND t.member_count < t.max_members`);
-      }
-
-      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-      values.push(limit + 1); // fetch 1 extra to determine hasMore
-
-      const sql = `
-        SELECT 
-          t.id, t.hackathon_id, t.name, t.description, t.needed_skills,
-          t.member_count, t.max_members, t.created_at, t.updated_at,
-          u.id as leader_id, u.name as leader_name, u.avatar_url as leader_avatar,
-          h.min_team_size,
-          CASE 
-            WHEN t.member_count >= t.max_members THEN 'full'
-            WHEN t.member_count >= h.min_team_size THEN 'ready'
-            ELSE 'forming'
-          END as status
-        FROM teams t
-        JOIN users u ON u.id = t.leader_id
-        JOIN hackathons h ON h.id = t.hackathon_id
-        ${whereClause}
-        ORDER BY t.created_at DESC, t.id DESC
-        LIMIT $${idx};
-      `;
-
-      const result = await query(sql, values);
-      const rows = result.rows;
-      const hasMore = rows.length > limit;
-      const items = hasMore ? rows.slice(0, limit) : rows;
-
-      const lastItem = items[items.length - 1];
-      const nextCursor = hasMore && lastItem ? {
-        cursorCreatedAt: lastItem.created_at.toISOString(),
-        cursorId: lastItem.id,
-      } : null;
-
-      return {
-        teams: items,
-        nextCursor,
-        hasMore,
-      };
-    });
-
-    return reply.send(data);
+    return reply
+      .header('X-Cache', 'MISS')
+      .header('Cache-Control', 'no-store')
+      .type('application/json')
+      .send(body);
   });
 
   // GET /api/teams/:id (Detailed View)

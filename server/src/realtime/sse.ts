@@ -1,6 +1,7 @@
 import { FastifyReply } from 'fastify';
 import pg from 'pg';
 import { createDedicatedClient } from '../db/pool.js';
+import { boardCache } from '../utils/singleFlight.js';
 
 export interface TeamEventPayload {
   type: string;
@@ -67,6 +68,9 @@ class RealtimeHub {
       } catch {}
       this.listenerClient = null;
     }
+    // Clear cached reads before asking clients to refetch, otherwise a refetch
+    // can be answered from the pre-change cache and stay stale until the next event.
+    boardCache.invalidateNow();
     // Broadcast resync to all connected SSE clients so they refetch current data
     this.broadcastToAll({ type: 'resync' });
 
@@ -128,6 +132,11 @@ class RealtimeHub {
   }
 
   private handleDatabaseNotification(payload: TeamEventPayload) {
+    // Invalidate first, synchronously. The commit is already durable, so any
+    // board refetch triggered by the SSE event below must not be served a
+    // pre-change snapshot from the in-process cache.
+    boardCache.invalidateNow();
+
     const sseMessage = `event: team_event\ndata: ${JSON.stringify(payload)}\n\n`;
 
     // 1. Broadcast to board listeners if hackathonId is present

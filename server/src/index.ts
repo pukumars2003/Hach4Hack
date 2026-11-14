@@ -15,6 +15,7 @@ import { requestRoutes } from './routes/requests.js';
 import { suggestionRoutes } from './routes/suggestions.js';
 import { auditRoutes } from './routes/audit.js';
 import { sseRoutes } from './routes/sse.js';
+import { installBoardHttpCache } from './middleware/httpCache.js';
 
 export async function buildApp() {
   const app = fastify({
@@ -95,6 +96,15 @@ export async function buildApp() {
       code: error.code || 'internal_error',
       message: error.message || 'An internal server error occurred.',
     });
+  });
+
+  // Per-request server-side timing, so a slow client can be told apart from a
+  // slow handler. `Server-Timing: app;dur=` is the handler time measured inside
+  // Node; compare it with the client-observed TTFB to see where the time went.
+  // onSend (not onResponse): by onResponse the headers are already flushed.
+  app.addHook('onSend', async (req, reply, payload) => {
+    reply.header('Server-Timing', `app;dur=${reply.elapsedTime.toFixed(2)}`);
+    return payload;
   });
 
   // Root Route: Serves React SPA when requested from browser, or JSON status info
@@ -201,6 +211,9 @@ export async function buildApp() {
   await app.register(auditRoutes, { prefix: '/api/audit' });
   await app.register(sseRoutes, { prefix: '/api/realtime' });
 
+  // 7. Serve cached board reads straight from the HTTP layer (in-process edge cache)
+  installBoardHttpCache(app);
+
   return app;
 }
 
@@ -218,7 +231,9 @@ export async function startServer() {
     // Start SSE listener
     await realtimeHub.startListener();
 
-    await app.listen({ port: config.port, host: config.host });
+    // Backlog raised from Node's 511 default: at high VU counts a burst of new
+  // connections can otherwise overflow the accept queue and be refused outright.
+  await app.listen({ port: config.port, host: config.host, backlog: 4096 });
     console.log(`[Fastify] Server listening on http://${config.host}:${config.port}`);
   } catch (err) {
     app.log.error(err);

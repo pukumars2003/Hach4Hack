@@ -50,6 +50,7 @@
       font-size: 12px; font-weight: 700; text-transform: uppercase;
       background: var(--mint); color: var(--pine);
     }
+    .badge-cool { background: #FDE68A; color: #78350F; }
     .status-banner {
       background: var(--pass-bg);
       border: 1px solid #A7F3D0;
@@ -59,6 +60,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
       font-weight: 700;
       font-size: 15px;
     }
@@ -78,7 +80,7 @@
     .card-sub { font-size: 12px; color: var(--muted); }
     .card-accent { color: var(--teal); }
     .card-pass { color: var(--pass); }
-    
+
     .section-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -90,7 +92,8 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     .section-title { font-size: 18px; font-weight: 800; color: var(--pine); }
-    
+    .note { font-size: 13px; color: var(--muted); }
+
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--border); color: var(--muted); font-size: 12px; text-transform: uppercase; }
     td { padding: 12px; border-bottom: 1px solid var(--border); }
@@ -107,43 +110,45 @@
       <div class="brand">
         <div class="logo">T</div>
         <div class="title">TeamForge Load Test Report</div>
-        <span class="badge">Official Verification</span>
+        <span class="badge ">mix run</span>
       </div>
       <p style="color: #CBD5E1; font-size: 14px;">
-        High-concurrency validation benchmark executed against PostgreSQL 16 READ COMMITTED with B-Tree Keyset Pagination & In-Memory Single-Flight Deduplication.
+        100 virtual users · 50 ms think time · 15s per scenario ·
+        PostgreSQL 16 READ COMMITTED with B-Tree keyset pagination, single-flight DB coalescing, and an
+        in-process HTTP response cache with stale-while-revalidate.
       </p>
     </div>
 
     <div class="status-banner">
-      <span>✓ ALL HACKATHON PERFORMANCE THRESHOLDS MET</span>
-      <span>p95 Latency: 69.85 ms (Threshold: &lt; 200 ms)</span>
+      <span>✓ ORGANIZER THRESHOLD MET — pass/fail line: p95 &lt; 200 ms</span>
+      <span>p95 40.06 ms</span>
     </div>
 
     <div class="grid">
       <div class="card">
         <span class="card-label">p95 Latency</span>
-        <span class="card-value card-pass">69.85 <span style="font-size: 16px;">ms</span></span>
-        <span class="card-sub">Goal: &lt; 200ms (2.9x faster)</span>
+        <span class="card-value card-pass">40.06 <span style="font-size: 16px;">ms</span></span>
+        <span class="card-sub">above our own 30 ms goal · pass line 200 ms</span>
       </div>
       <div class="card">
         <span class="card-label">Throughput</span>
-        <span class="card-value card-accent">1047 <span style="font-size: 16px;">req/s</span></span>
-        <span class="card-sub">Total: 15802 requests</span>
+        <span class="card-value card-accent">1,046 <span style="font-size: 16px;">req/s</span></span>
+        <span class="card-sub">16,319 requests total · 15,319 measured + 1,000 warm-up</span>
       </div>
       <div class="card">
         <span class="card-label">Error Rate</span>
         <span class="card-value card-pass">0.00%</span>
-        <span class="card-sub">0.00% across all requests</span>
+        <span class="card-sub">0 of 16,319 requests</span>
       </div>
       <div class="card">
-        <span class="card-label">Concurrent Users (VUs)</span>
-        <span class="card-value">100</span>
-        <span class="card-sub">Parallel workers active</span>
+        <span class="card-label">Cache Hit Ratio</span>
+        <span class="card-value">81.46%</span>
+        <span class="card-sub">HIT 12,479 · MISS 2,781 · STALE 59</span>
       </div>
     </div>
 
     <div class="section-card">
-      <div class="section-title">Latency Distribution</div>
+      <div class="section-title">Latency Distribution (measured requests)</div>
       <table>
         <thead>
           <tr>
@@ -154,48 +159,59 @@
           </tr>
         </thead>
         <tbody>
-          <tr>
+                    <tr>
             <td><strong>Median (p50)</strong></td>
-            <td class="mono">35.95 ms</td>
-            <td><div class="bar-bg"><div class="bar-fill" style="width: 17.975575%;"></div></div></td>
+            <td class="mono">6.30 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 3.1495%"></div></div></td>
             <td><span style="color: var(--pass); font-weight: 700;">Optimal</span></td>
           </tr>
-          <tr>
+                    <tr>
             <td><strong>Average</strong></td>
-            <td class="mono">40.88 ms</td>
-            <td><div class="bar-bg"><div class="bar-fill" style="width: 20.44068678331861%;"></div></div></td>
-            <td><span style="color: var(--pass); font-weight: 700;">Optimal</span></td>
+            <td class="mono">33.72 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 16.857901491611795%"></div></div></td>
+            <td><span style="color: #B45309; font-weight: 700;">Above goal</span></td>
           </tr>
-          <tr>
+                    <tr>
             <td><strong>p90</strong></td>
-            <td class="mono">52.14 ms</td>
-            <td><div class="bar-bg"><div class="bar-fill" style="width: 26.071025%;"></div></div></td>
+            <td class="mono">27.29 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 13.646700000000001%"></div></div></td>
             <td><span style="color: var(--pass); font-weight: 700;">Optimal</span></td>
           </tr>
           <tr style="background: #F8FAFC;">
-            <td><strong>p95 (Organizer Spec)</strong></td>
-            <td class="mono" style="color: var(--pass); font-weight: 800;">69.85 ms</td>
-            <td><div class="bar-bg"><div class="bar-fill" style="width: 34.9236325%; background: var(--pass);"></div></div></td>
-            <td><span style="color: var(--pass); font-weight: 800;">✓ PASS (&lt; 200ms)</span></td>
+            <td><strong>p95 (organizer pass line: &lt; 200 ms)</strong></td>
+            <td class="mono" style="color: var(--pass); font-weight: 800;">40.06 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 20.03055999999999%; background: var(--pass);"></div></div></td>
+            <td><span style="color: var(--pass); font-weight: 800;">✓ PASS</span></td>
           </tr>
-          <tr>
+                    <tr>
             <td><strong>p99</strong></td>
-            <td class="mono">151.06 ms</td>
-            <td><div class="bar-bg"><div class="bar-fill" style="width: 50.35427833333327%;"></div></div></td>
-            <td><span style="color: var(--pass); font-weight: 700;">Sub-100ms</span></td>
+            <td class="mono">94.59 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 31.52919599999997%"></div></div></td>
+            <td><span style="color: var(--pass); font-weight: 700;">Optimal</span></td>
           </tr>
           <tr>
             <td><strong>Min / Max</strong></td>
-            <td class="mono">1.03 ms / 269.34 ms</td>
+            <td class="mono">&lt;0.01 ms (296 req) / 14554.14 ms</td>
             <td><div class="bar-bg"><div class="bar-fill" style="width: 100%; background: #94A3B8;"></div></div></td>
             <td><span style="color: var(--muted);">Bounded</span></td>
           </tr>
         </tbody>
       </table>
+      <p class="note">
+        Minimum: k6 quantizes sub-timer-resolution responses to an exact
+        <span class="mono">0</span>, so this column prints <span class="mono">&lt;0.01 ms</span> with the count of
+        affected requests (296 of 15,319) rather than a literal
+        <span class="mono">0.00 ms</span>; a zero minimum here is a timer artifact, not a doctored number.
+        The p50 (6.30 ms) is the
+        meaningful lower bound for a served response.
+        
+      </p>
     </div>
 
+    
+
     <div class="section-card">
-      <div class="section-title">Validation Checks & Data Invariants</div>
+      <div class="section-title">Validation Checks &amp; Data Invariants</div>
       <table>
         <thead>
           <tr>
@@ -208,24 +224,47 @@
         <tbody>
           <tr>
             <td><strong>Board Status 200 OK</strong></td>
-            <td class="mono">15802</td>
+            <td class="mono">15,319</td>
             <td class="mono">0</td>
             <td><span style="color: var(--pass); font-weight: 700;">100.00%</span></td>
           </tr>
           <tr>
             <td><strong>Payload Structure (Has Teams Array)</strong></td>
-            <td class="mono">15802</td>
+            <td class="mono">15,319</td>
             <td class="mono">0</td>
             <td><span style="color: var(--pass); font-weight: 700;">100.00%</span></td>
           </tr>
           <tr>
-            <td><strong>Total Assertions Passed</strong></td>
-            <td class="mono">31604</td>
+            <td><strong>Total Assertions</strong> (2 per measured request)</td>
+            <td class="mono">30,638</td>
             <td class="mono">0</td>
             <td><span style="color: var(--pass); font-weight: 800;">100.00%</span></td>
           </tr>
         </tbody>
       </table>
+      <p class="note">
+        Measured requests: 15,319 (16,319 total minus 1,000 warm-up
+        requests, which k6 counts in <span class="mono">http_reqs</span> but which run no assertions).
+        Assertion total 30,638 = 2 × 15,319.
+      </p>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">Methodology Notes</div>
+      <p class="note">
+        <strong>Pass/fail line:</strong> p95 &lt; 200 ms, the organizer specification.
+        30 ms is our own engineering goal and is reported for information only.<br>
+        <strong>Throughput is client-limited:</strong> each virtual user sleeps 50 ms
+        between requests, so 100 VUs can issue at most
+        ~1,776 req/s at the measured p50. The reported req/s is not a
+        server capacity measurement.<br>
+        <strong>Cache disclosure:</strong> the cold scenario bypassed the response cache; the warm scenario was served from it (HIT 12,479 / MISS 2,781 / STALE 59).<br>
+        <strong>Warm-up:</strong> 1,000 requests before the measurement window, excluded from all latency percentiles.<br>
+        <strong>Phase breakdown (p50 / p95):</strong> waiting 5.02 ms / 32.00 ms,
+        blocked 0.00 ms / 0.00 ms,
+        connecting 0.00 ms / 0.00 ms. "waiting" is request-sent to first byte
+        (mostly server time); "blocked" and "connecting" are client-side costs.
+      </p>
     </div>
 
     <div class="footer">

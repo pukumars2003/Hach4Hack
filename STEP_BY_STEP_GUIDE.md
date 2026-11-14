@@ -14,7 +14,7 @@
 5. [Verifying User Authentication & Login State](#5-verifying-user-authentication--login-state)
 6. [Testing the Race-Proof Concurrency (CLI & Live UI)](#6-testing-the-race-proof-concurrency-cli--live-ui)
 7. [Running the Load Test Benchmark (100 Concurrent Users)](#7-running-the-load-test-benchmark-100-concurrent-users)
-8. [Running the Full Test Suite (26 Passing Tests)](#8-running-the-full-test-suite-26-passing-tests)
+8. [Running the Full Test Suite (27 Passing Tests)](#8-running-the-full-test-suite-27-passing-tests)
 9. [Running the Chaos / SIGKILL Resilience Test](#9-running-the-chaos--sigkill-resilience-test)
 10. [Walkthrough of Core Features in the Web UI](#10-walkthrough-of-core-features-in-the-web-ui)
 11. [Running with Docker Compose](#11-running-with-docker-compose)
@@ -168,53 +168,79 @@ When 50 transactions arrive at once, PostgreSQL queues them on the row lock. As 
 
 The requirement states: **Show p95 under 200 ms on the board endpoint with 100 concurrent users.**
 
-### Run the Standalone Benchmark
+### Method A: Run Official Hackathon Load Test with k6
 1. Ensure the server is running (`npm run dev:server`).
 2. Open a second PowerShell terminal and run:
 ```powershell
-npx tsx scripts/benchmark.ts 100 10
+k6 run scripts/load-test.js
 ```
-*(Runs 100 concurrent virtual workers for 10 seconds against the live board).*
+- **Virtual Users:** 100 concurrent workers
+- **Duration:** 15 seconds (configurable via `-e DURATION=10s`)
+- **Warm-up:** `setup()` issues 1,000 requests first, so JIT, DB pool, and the board cache are primed. Warm-up traffic is excluded from the reported percentiles, but k6 still counts those 1,000 requests in `http_reqs` — the summary prints the total and the measured count separately.
+- **Verified Result (warm, cache hit):** p95 **3.43 ms** at 100 VUs, 0.00% errors, 56,520 assertions = 2 × 28,260 measured requests. The pass line is the organizer's **200 ms**; 30 ms is our own goal.
+- **Verified Result (realistic mix, 80% hot URL / 20% random filters):** p95 **45–53 ms** at 100 VUs, ~81% cache hits — this is the number a real hackathon board would produce (`k6 run -e MIX=true scripts/load-test.js`).
+- **Verified Result (cold, cache disabled):** start the server with `$env:BOARD_CACHE_DISABLED='1'` and the same run reports p95 **186–244 ms** — the honest cost of the uncached Fastify + PostgreSQL path on this laptop. All three are in [docs/LOAD_TEST_REPORT.md](docs/LOAD_TEST_REPORT.md), which also documents why the cold path costs ~150 ms (the query itself is 0.65 ms; the pool and host CPU are the cost).
+- **Interactive HTML Report:** Automatically generated and saved to `docs/load-test-report.html`.
+  ```powershell
+  Start-Process docs\load-test-report.html
+  ```
 
-**Sample Verified Benchmark Result:**
+#### Scale Up to 1 Lakh (100,000 Requests):
+```powershell
+# Verified: 101,000 requests, p95 16.56 ms, 0.00% errors (100 VUs)
+k6 run -e ONE_LAKH=true -e VUS=100 scripts/load-test.js
+```
+> Running the 100k scenario at 500 VUs is supported, but when k6 and the server share one laptop the client consumes most of the CPU and inflates latency. Measure the 500-VU profile with k6 on a separate machine for a true server-side number.
+
+### Method B: Run with Built-In Node Benchmarker (Zero Dependencies)
+```powershell
+npm run load-test
+# Or customize: npx tsx scripts/benchmark.ts 100 15
+# Cold (unique URL per request): npx tsx scripts/benchmark.ts 100 15 --cold
+```
+
+**Verified Benchmark Console Output:**
 ```text
 ====================================================
 BOARD ENDPOINT HIGH-CONCURRENCY LOAD TEST
 Target: http://localhost:3000/api/teams?limit=20
 Virtual Users: 100 concurrent workers
-Duration: 10 seconds
+Think Time: 50 ms between requests per worker
+Cache: WARM — hot URL, served from the in-process response cache
+Duration: 15 seconds 
 ====================================================
-Total Requests:     12,480
-Successful (200):   12,480
-Failed:             0 (0.00% error rate)
-Throughput:         1,248 req/sec
+Warm-up: 1,000 requests completed (excluded from metrics)
 
-Latency Distribution:
-  Average:          12.4 ms
-  p50 (Median):     9.8 ms
-  p90:              14.2 ms
-  p95:              17.6 ms   <-- (Target: < 200 ms | 11x faster than required!)
-  p99:              24.1 ms
-====================================================
-STATUS: PASS (p95 is 17.6ms, well under the 200ms requirement)
+--- BENCHMARK RESULTS ---
+Total Requests:      23,529
+Requests / Sec:      1,563.6 req/s (client-limited, see note)
+Success Rate:        100.00%
+Latency p50:         5.5 ms
+Latency p90:         9.6 ms
+Latency p95:         11.45 ms (PASS LINE: < 200 ms organizer spec · internal goal: < 30 ms)
+Latency p99:         17.33 ms
+Latency Avg:         6.29 ms
+Latency Min / Max:   0.63 ms / 93.92 ms
+Cache:               HIT 23,501 · MISS 28 (99.88% hit ratio) [warm run]
+------------------------
+Throughput note:     100 VUs x 1000 / (p50 5.5 ms + 50 ms think time) ≈ 1,802 req/s ceiling.
+                     Measured req/s is limited by the client think time, not by server capacity.
+
+✅ PASS (organizer spec p95 < 200 ms): p95 is 11.45 ms, also under our own 30 ms goal.
 ```
 
-### Alternative: Run with k6
-If you have [k6](https://k6.io/) installed:
-```powershell
-k6 run scripts/load-test.js
-```
+> Exact figures vary with machine load; the benchmark warms up 1,000 requests and applies the same 50 ms per-VU think time as the k6 scenario so both tools measure comparable steady-state traffic.
 
 ---
 
-## 8. Running the Full Test Suite (26 Passing Tests)
+## 8. Running the Full Test Suite (27 Passing Tests)
 
 Run the comprehensive Vitest integration and concurrency test suite:
 ```powershell
 npm test --workspace=server
 ```
 
-**Test Coverage Summary (26/26 Passing):**
+**Test Coverage Summary (27/27 Passing):**
 - **Auth (4 tests):** Duplicate registration 409, login authentication, invalid password rejection 401, `/me` profile retrieval.
 - **Team Invariants (5 tests):** Create team with leader count=1, 1-team-per-hackathon restriction, duplicate team name rejection, keyset pagination cursor, status filtering (`forming`/`ready`/`full`).
 - **Invite Codes & Entropy (4 tests):** Crockford Base32 invite code generation, non-leader code generation forbidden (403), joining via invite code, invalid code 404.
@@ -224,6 +250,7 @@ npm test --workspace=server
 - **Leadership & Lifecycle (3 tests):** Leader removal of member, automatic leader handover to longest-standing member on leave, automatic team deletion when last member leaves.
 - **Audit Logs & Security (1 test):** Immutable audit logs trigger blocks any direct `UPDATE` or `DELETE`.
 - **Health & Monitoring (1 test):** `/health` endpoint reporting database latency and connection pool metrics.
+- **HTTP Cache (1 test):** Second board read is served from the raw HTTP-layer cache with JSON, CORS and `content-length` headers intact.
 - **Concurrency (2 tests):** 50-racer burst for 1 seat + simultaneous 2-team cross-join race.
 
 ---

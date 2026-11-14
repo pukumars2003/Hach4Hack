@@ -16,7 +16,7 @@
 | :--- | :--- | :--- | :---: |
 | **Participants Seeded** | 10,000 participants | **10,000 users seeded (capable of 50,000)** | ✅ Complete |
 | **Teams Seeded** | 2,000 teams | **2,000 teams seeded (capable of 10,000)** | ✅ Complete |
-| **Board Latency (p95)** | < 200 ms @ 100 VUs | **p95 < 20 ms @ 100-500 VUs** | ✅ Complete |
+| **Board Latency (p95)** | < 200 ms @ 100 VUs | **p95 3.43 ms warm (cache hit) · 45–53 ms realistic mix · 186–244 ms with the cache disabled** | ✅ Complete (500 VUs: 440 ms — not met) |
 | **Last-Seat Race** | 50 simultaneous racers | **50 to 250 simultaneous racers** | ✅ Proven |
 | **Winners per Last Seat** | Exactly 1 winner | **Exactly 1 winner (0 double-joins)** | ✅ Proven |
 | **Rules Enforcement** | Min/max sizes, 1 team/user | **Postgres CHECK & UNIQUE constraints** | ✅ Proven |
@@ -26,7 +26,7 @@
 | **Security & Entropy** | Rate limits, secure codes | **Crockford Base32 + SHA-256 + Rate limits** | ✅ Proven |
 | **Audit Logs** | Who, what, when | **Append-only immutable audit_logs table** | ✅ Proven |
 | **Teammate Suggestions** | Skill + timezone scoring | **Formula scoring with explicit breakdown** | ✅ Proven |
-| **Test Suite** | At least 20 API tests in CI | **26 tests passing in Vitest & GitHub Actions** | ✅ Proven |
+| **Test Suite** | At least 20 API tests in CI | **27 tests passing in Vitest & GitHub Actions** | ✅ Proven |
 | **Frontend UI** | Phone & keyboard-friendly | **React 18 + Tailwind (TeamForge UI)** | ✅ Proven |
 | **Deployment** | Free-tier live URL | **render.yaml / Docker Compose** | ✅ Ready |
 | **Bonus: Rollback UI** | Optimistic UI with rollback | **Instant toast rollback on 409 rejection** | ✅ Proven |
@@ -56,7 +56,7 @@ npm run test:race
 ```
 *Asserts that exactly 1 request returns `200 OK`, 249 return `409 Conflict`, and database count remains strictly bounded.*
 
-### 2. Full Invariants & API Suite (25+ Tests)
+### 2. Full Invariants & API Suite (27 Tests)
 ```bash
 npm test
 ```
@@ -69,11 +69,15 @@ npm run test:chaos
 ```
 *Validates that zero partial state or over-capacity corruption occurred.*
 
-### 4. 500 Virtual Users High-Concurrency Load Test
+### 4. High-Concurrency Load Test & HTML Dashboard
 ```bash
+# Run official 100 VU load test with k6 (outputs docs/load-test-report.html):
+k6 run scripts/load-test.js
+
+# Or run with built-in zero-dependency Node benchmarker:
 npm run load-test
 ```
-*Executes load test against the board endpoint, displaying p50, p90, p95, p99, and requests/sec.*
+*Measures p50, p90, p95, and p99 latency against the board endpoint. Both runners warm up the server first, then report steady-state percentiles against the organizer's **200 ms pass line** (our own 30 ms goal is reported separately, not as a gate). Add `-e VARY=true` to k6 for a cache-bypassing run, or start the server with `BOARD_CACHE_DISABLED=1` for a fully uncached one — see [docs/LOAD_TEST_REPORT.md](docs/LOAD_TEST_REPORT.md). Generates a visual, interactive HTML dashboard at [docs/load-test-report.html](docs/load-test-report.html).*
 
 ---
 
@@ -98,6 +102,13 @@ npm run load-test
 - **[1-Page Design Document](docs/DESIGN_DOC.md)**
 - **[Technical Architecture & Concurrency Spec](docs/ARCHITECTURE_AND_EXECUTION_PLAN.md)**
 
+### Board Read Optimization Path
+Even fully cached, the board endpoint dominates read traffic during a race. Three layers keep p95 in single-digit milliseconds:
+
+1. **Keyset (cursor) pagination** — an index seek instead of an `OFFSET` scan, so page depth does not change cost.
+2. **Single-flight DB coalescing** — concurrent identical queries share one PostgreSQL execution.
+3. **In-process HTTP response cache** — validated board responses are pre-serialized into a reusable `Buffer` and served directly from the Node HTTP layer for 5 s, then served stale for up to 30 s while one background refresh repopulates the entry. Writes invalidate immediately (an earlier 500 ms coalescing window could drop an invalidation and serve a pre-write board for the rest of the TTL — fixed, with a regression test). The SSE/LISTEN handler invalidates **before** broadcasting, so a refetch triggered by a live event cannot be served the pre-change copy. Board reads are the only thing cached: join, accept and team-detail reads always go to PostgreSQL, and responses are `Cache-Control: no-store` so a browser cannot hold a pre-join copy. Measured with the cache disabled, the same endpoint is 186–244 ms p95 at 100 VUs versus 45–53 ms on the realistic mix and 3.43 ms on a pure hot key.
+
 ---
 
 ## ⌨️ Keyboard-Only Navigation Shortcuts
@@ -113,10 +124,13 @@ npm run load-test
 
 ---
 
-## 📜 Submission Deliverables
+## 📜 Submission Deliverables & Documentation Index
 
-- **Live URL:** Free tier deployment (Docker / Railway / Render)
-- **Design Document:** `docs/DESIGN_DOC.md`
-- **Load Test Report:** `scripts/load-test.js` & `scripts/benchmark.ts`
-- **GitHub Actions CI:** `.github/workflows/ci.yml`
+- **Step-by-Step Execution Guide:** [STEP_BY_STEP_GUIDE.md](STEP_BY_STEP_GUIDE.md)
+- **1-Page Design Document:** [docs/DESIGN_DOC.md](docs/DESIGN_DOC.md)
+- **Technical Architecture Spec:** [docs/ARCHITECTURE_AND_EXECUTION_PLAN.md](docs/ARCHITECTURE_AND_EXECUTION_PLAN.md)
+- **Load Test Report & Analysis:** [docs/LOAD_TEST_REPORT.md](docs/LOAD_TEST_REPORT.md)
+- **Visual HTML Benchmark Dashboard:** [docs/load-test-report.html](docs/load-test-report.html)
+- **GitHub Actions CI Pipeline:** [.github/workflows/ci.yml](.github/workflows/ci.yml)
+- **Deployment Manifests:** [render.yaml](render.yaml) & [docker-compose.yml](docker-compose.yml)
 

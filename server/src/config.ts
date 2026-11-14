@@ -12,6 +12,9 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   jwtSecret: process.env.JWT_SECRET || 'hackathon-race-proof-secret-jwt-key-2026',
   corsOrigin: process.env.CORS_ORIGIN || '*',
+  // Set BOARD_CACHE_DISABLED=1 to force every board read through PostgreSQL.
+  // Used by the cold-cache benchmark; never set in normal deployments.
+  boardCacheEnabled: !/^(1|true|yes|on)$/i.test(process.env.BOARD_CACHE_DISABLED || ''),
   database: {
     connectionString:
       process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/team_formation',

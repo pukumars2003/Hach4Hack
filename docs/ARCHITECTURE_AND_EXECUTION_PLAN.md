@@ -17,7 +17,7 @@ To secure 1st place, we not only fulfill the baseline requirements but exceed th
 | :--- | :--- | :--- | :--- |
 | **Participants Seeded** | 10,000 | **50,000** | PostgreSQL `UNNEST`/`COPY` bulk seeding; precomputed argon2id hash. |
 | **Teams Seeded** | 2,000 | **10,000** | Keyset pagination `(created_at, id) < ($c_time, $c_id)` avoids slow table scans. |
-| **Board Latency (p95)** | < 200 ms @ 100 VUs | **< 20 ms @ 500 VUs** | 1-second in-memory single-flight coalescing cache + partial composite indexes. |
+| **Board Latency (p95)** | < 200 ms @ 100 VUs | **p95 3.43 ms @ 100 VUs (cache-hit path); 412.96 ms with the cache disabled** | Pre-serialized HTTP response cache (5 s + 30 s stale-while-revalidate) over single-flight DB coalescing and partial composite indexes. |
 | **Last-Seat Race** | 50 simultaneous | **250 simultaneous (20 rounds)** | Guarded row-locking `UPDATE` in READ COMMITTED mode. |
 | **Winners per Last Seat** | Exactly 1 | **Exactly 1 (0 duplicate / 0 overflow)** | Atomic DB constraint + row-level queueing. |
 | **API Automated Tests** | 20+ | **50+ Integration + Race + Chaos** | Automated Vitest suite running in GitHub Actions with real PostgreSQL. |
@@ -302,7 +302,7 @@ gantt
     Thundering Herd Single-Flight Cache      :d2_2, after d2_1, 2h
     Recommendation Algorithm & Explanation   :d2_3, after d2_2, 3h
     50,000 User / 10,000 Team Seed Script    :d2_4, after d2_3, 3h
-    k6 Load Test Execution (p95 < 20ms)      :d2_5, after d2_4, 3h
+    k6 Load Test Execution (p95 < 200ms)      :d2_5, after d2_4, 3h
     Chaos Mid-Transaction Kill Test          :d2_6, after d2_5, 2h
     section Day 3: Frontend, Deployment & Packaging
     React Vite UI & Keyboard Navigation      :d3_1, 2026-11-13, 4h
