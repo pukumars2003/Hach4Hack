@@ -15,7 +15,8 @@ export function AuthModal({
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('adminbro');
   const [password, setPassword] = useState('hireme');
-  const [password, setPassword] = useState('Demo@12345');
+  // const [password, setPassword] = useState('Demo@12345'); // removed duplicate
+
   const [name, setName] = useState('Ajay');
   const [skills, setSkills] = useState('React, TypeScript, Postgres');
   const [error, setError] = useState<string | null>(null);

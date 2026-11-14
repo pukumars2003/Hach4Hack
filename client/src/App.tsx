@@ -10,7 +10,9 @@ import {
   RequestJoinModal,
   KeyboardHelpModal,
 } from './components/Modals.js';
+import { AuthModal } from './components/AuthModal.js';
 import { AdminDashboard } from './components/AdminDashboard.js';
+
 
 import { useSSE } from './hooks/useSSE.js';
 import { api, getAuthToken, clearAuthToken } from './api/client.js';
@@ -46,9 +48,19 @@ export function App() {
   // Toast / Status notification (TeamForge toast format)
   const [notification, setNotification] = useState<{ message: string; type?: 'alert' | 'info' | 'success' } | null>(null);
 
+  // Helper to show toast messages
   const showToast = (message: string, type: 'alert' | 'info' | 'success' = 'info') => {
     setNotification({ message, type });
   };
+
+  // Logout handler used by Navbar and AdminDashboard
+  const handleLogout = () => {
+    clearAuthToken();
+    setCurrentUser(null);
+    setUserMembership(null);
+    showToast('Signed out successfully.', 'info');
+  };
+
 
   // 1. Initial Load: Check auth & hackathons
   const loadUserAndHackathons = useCallback(async () => {
@@ -58,18 +70,7 @@ export function App() {
       if (hList.length > 0) {
         setActiveHackathonId(hList[0].id);
       }
-
-      if (getAuthToken()) {
-        try {
-          const me = await api.getMe();
-          setCurrentUser(me.user);
-          setUserMembership(me.membership);
-        } catch {
-          clearAuthToken();
-          setCurrentUser(null);
-          setUserMembership(null);
-        }
-      }
+      // Intentionally skip auto-login via stored token to always show login modal first.
     } catch {
       // Not logged in or fresh
     }
@@ -223,10 +224,6 @@ return () => window.removeEventListener('keydown', handleKeyDown);
     }
   };
 
-  if (currentUser && (currentUser as any).role === 'admin') {
-    return <AdminDashboard onLogout={handleLogout} />;
-  }
-
   // If no user is logged in, show only the login modal (no guest dashboard)
   if (!currentUser) {
     return (
@@ -234,7 +231,7 @@ return () => window.removeEventListener('keydown', handleKeyDown);
         <AuthModal
           isOpen={true}
           onClose={() => {}}
-          onLoginSuccess={(user) => {
+          onLoginSuccess={(user: User) => {
             setCurrentUser(user);
             loadUserAndHackathons();
             showToast(`Signed in as ${user.name}`, 'success');
@@ -242,6 +239,7 @@ return () => window.removeEventListener('keydown', handleKeyDown);
         />
       </div>
     );
+  }
 
   // If logged in but not admin, show access denied
   if (currentUser && (currentUser as any).role !== 'admin') {
@@ -251,14 +249,13 @@ return () => window.removeEventListener('keydown', handleKeyDown);
       </div>
     );
   }
+
+  // Admin user sees dashboard
+  if (currentUser && (currentUser as any).role === 'admin') {
+    return <AdminDashboard onLogout={handleLogout} />;
   }
 
-const handleLogout = () => {
-    clearAuthToken();
-    setCurrentUser(null);
-    setUserMembership(null);
-    showToast('Signed out successfully.', 'info');
-  };
+
 
 
   
