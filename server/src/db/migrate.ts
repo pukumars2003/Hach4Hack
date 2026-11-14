@@ -40,7 +40,21 @@ export async function runMigrations() {
   await targetClient.connect();
 
   try {
-    const migrationFilePath = path.join(__dirname, 'migrations', '001_initial_schema.sql');
+    let migrationFilePath = path.join(__dirname, 'migrations', '001_initial_schema.sql');
+    if (!fs.existsSync(migrationFilePath)) {
+      const candidates = [
+        path.join(__dirname, '..', 'src', 'db', 'migrations', '001_initial_schema.sql'),
+        path.join(__dirname, '..', '..', 'src', 'db', 'migrations', '001_initial_schema.sql'),
+        path.join(process.cwd(), 'server', 'src', 'db', 'migrations', '001_initial_schema.sql'),
+        path.join(process.cwd(), 'src', 'db', 'migrations', '001_initial_schema.sql'),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+          migrationFilePath = candidate;
+          break;
+        }
+      }
+    }
     const sql = fs.readFileSync(migrationFilePath, 'utf-8');
 
     console.log('[Migration] Executing 001_initial_schema.sql...');

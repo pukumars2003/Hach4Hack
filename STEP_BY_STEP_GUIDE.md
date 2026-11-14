@@ -290,3 +290,4 @@ docker compose up --build
 ---
 
 **Built with pride for the Hack4Hack Concurrency Championship 2026.**
+

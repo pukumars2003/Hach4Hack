@@ -33,6 +33,22 @@ export async function runLoadTest(options: {
   console.log(`Duration: ${duration} seconds`);
   console.log('====================================================');
 
+  // Pre-flight check: ensure target server is up
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const ping = http.get(targetUrl, { timeout: 3000 }, (res) => {
+        res.resume();
+        resolve();
+      });
+      ping.on('error', reject);
+      ping.on('timeout', () => { ping.destroy(); reject(new Error('Timeout')); });
+    });
+  } catch {
+    console.error(`\n❌ Target server unreachable at ${targetUrl.origin}`);
+    console.error(`👉 Please start the server first in another terminal: npm run dev:server (or npm start)\n`);
+    process.exit(1);
+  }
+
   const agent = new http.Agent({
     keepAlive: true,
     maxSockets: VUs + 50,

@@ -142,6 +142,23 @@ export async function buildApp() {
     return reply.status(404).send({ error: 'Asset not found' });
   });
 
+  // SPA Fallback Handler: Serves index.html for non-API web requests
+  app.setNotFoundHandler(async (req, reply) => {
+    if (req.method === 'GET' && !req.url.startsWith('/api') && req.headers.accept?.includes('text/html')) {
+      const p1 = path.resolve(process.cwd(), '../client/dist/index.html');
+      const p2 = path.resolve(process.cwd(), 'client/dist/index.html');
+      const indexPath = fs.existsSync(p1) ? p1 : fs.existsSync(p2) ? p2 : null;
+      if (indexPath) {
+        const html = fs.readFileSync(indexPath, 'utf-8');
+        return reply.type('text/html').send(html);
+      }
+    }
+    return reply.status(404).send({
+      code: 'not_found',
+      message: `Route ${req.method}:${req.url} not found`,
+    });
+  });
+
   // 5. Health & Metrics Endpoint
   app.get('/health', async (req, reply) => {
     let dbStatus = 'healthy';

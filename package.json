@@ -8,6 +8,7 @@
     "client"
   ],
   "scripts": {
+    "start": "npm run start --workspace=server",
     "dev:server": "npm run dev --workspace=server",
     "dev:client": "npm run dev --workspace=client",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
@@ -17,8 +18,9 @@
     "test": "npm run test --workspace=server",
     "test:race": "npm run test:race --workspace=server",
     "test:chaos": "npm run test:chaos --workspace=server",
+    "db:migrate": "npm run db:migrate --workspace=server",
     "seed": "npm run seed --workspace=server",
-    "load-test": "npm run load-test --workspace=server"
+    "load-test": "tsx scripts/benchmark.ts 100 10"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

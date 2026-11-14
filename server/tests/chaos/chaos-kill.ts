@@ -1,6 +1,7 @@
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 import pg from 'pg';
 import { config } from '../../src/config.js';
 import { runMigrations } from '../../src/db/migrate.js';
@@ -8,6 +9,15 @@ import { generateInviteCode, hashInviteCode } from '../../src/utils/crypto.js';
 
 const { Pool } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function signTestJwt(payload: Record<string, unknown>, secret: string): string {
+  const base64url = (b: Buffer | string) =>
+    (Buffer.isBuffer(b) ? b : Buffer.from(b)).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const h = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const p = base64url(JSON.stringify({ ...payload, iat: Math.floor(Date.now() / 1000) }));
+  const sig = crypto.createHmac('sha256', secret).update(`${h}.${p}`).digest();
+  return `${h}.${p}.${base64url(sig)}`;
+}
 
 async function runChaosTest() {
   console.log('====================================================');
@@ -18,22 +28,21 @@ async function runChaosTest() {
   const pool = new Pool({ connectionString: config.database.connectionString });
 
   try {
+    const testRunId = Date.now();
     // 1. Prepare test database fixtures
     const hRes = await pool.query(
       `INSERT INTO hackathons (name, slug, min_team_size, max_team_size, is_active)
        VALUES ($1, $2, 2, 4, true)
-       ON CONFLICT (slug) DO UPDATE SET is_active = true
        RETURNING id`,
-      ['Chaos Hackathon', 'chaos-hackathon']
+      [`Chaos Hackathon ${testRunId}`, `chaos-hackathon-${testRunId}`]
     );
     const hackathonId = hRes.rows[0].id;
 
     const leaderRes = await pool.query(
       `INSERT INTO users (email, password_hash, name)
        VALUES ($1, $2, $3)
-       ON CONFLICT (email) DO UPDATE SET name = 'Chaos Leader'
        RETURNING id`,
-      ['chaos_leader@test.com', 'hash', 'Chaos Leader']
+      [`chaos_leader_${testRunId}@test.com`, 'hash', 'Chaos Leader']
     );
     const leaderId = leaderRes.rows[0].id;
 
@@ -105,27 +114,36 @@ async function runChaosTest() {
 
     console.log(`[Chaos] Server process up with PID ${serverProc.pid}.`);
 
-    // 3. Initiate 50 concurrent join requests
-    console.log('[Chaos] Firing 50 concurrent join requests and triggering SIGKILL mid-flight...');
+    // 3. Initiate 50 concurrent join requests with valid JWT auth
+    console.log('[Chaos] Firing 50 concurrent authenticated join requests and triggering kill mid-flight...');
     
-    // We launch the requests without awaiting all of them
     const promises = joiners.map((j) => {
+      const token = signTestJwt({ id: j.id, email: j.email, name: `Chaos Racer ${j.id}` }, config.jwtSecret);
       return fetch(`http://localhost:${port}/api/teams/join-by-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
           'Idempotency-Key': `chaos-${j.id}`,
         },
         body: JSON.stringify({ code: rawInviteCode }),
       }).catch(() => null);
     });
 
-    // Wait 25 milliseconds (mid-flight transaction execution)
-    await new Promise((r) => setTimeout(r, 25));
+    // Wait 35 milliseconds (mid-flight transaction execution)
+    await new Promise((r) => setTimeout(r, 35));
 
     // Abruptly kill the server process mid-transaction!
     console.log('[Chaos] Sending abrupt KILL to server process...');
-    serverProc.kill('SIGKILL');
+    if (process.platform === 'win32' && serverProc.pid) {
+      try {
+        execSync(`taskkill /F /T /PID ${serverProc.pid}`, { stdio: 'ignore' });
+      } catch {
+        serverProc.kill();
+      }
+    } else {
+      serverProc.kill('SIGKILL');
+    }
 
     await Promise.allSettled(promises);
     console.log('[Chaos] Server killed and all network connections terminated.');
