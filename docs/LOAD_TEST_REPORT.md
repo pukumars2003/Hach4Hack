@@ -3,7 +3,8 @@
 **Evaluation Subject:** PS1 · Race-Proof Team Formation at Scale  
 **Testing Tools:** Grafana k6 (`v2.1.0`) & Native High-Throughput Node.js HTTP Benchmarker  
 **Target Endpoint:** `GET /api/teams` (keyset-paginated board with search and status filters)  
-**Database:** PostgreSQL 16 (`READ COMMITTED`, `idx_teams_board_cursor` / `idx_teams_global_cursor`)  
+**Database:** PostgreSQL 17 (`READ COMMITTED`, `idx_teams_board_cursor` / `idx_teams_global_cursor`)  
+**Seed:** 10,078 teams / 61,515 users (50,000 seed users plus test rows)  
 **Cache:** 5 s pre-serialized HTTP response cache + 30 s stale-while-revalidate, over a 1 s single-flight DB coalescer with version-guarded invalidation  
 **Interactive report:** [docs/load-test-report.html](load-test-report.html) · raw run JSON: [docs/load-test-runs/last-run.json](load-test-runs/last-run.json)
 
@@ -14,22 +15,26 @@
 The organizer's pass/fail line is **p95 < 200 ms at 100 concurrent users**. That is the only threshold used
 below. **30 ms is our own engineering goal** and is always labelled as such, never as a gate.
 
-Three traffic shapes are measured, because each one on its own is misleading:
+Three traffic shapes are measured at the full 10,078-team seed on this host:
 
 | Shape | What it is | p50 | p95 | req/s | Errors | Cache hit |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Realistic mix (headline)** | 80% default first page + 20% random filters/cursors/search | 5.95–7.02 ms | **40.06–52.66 ms** ✅ | 990–1,021 | 0.00% | 81.4% |
-| Warm (cache hit) | every VU re-requests one hot URL | 0.53 ms | **3.43 ms** ✅ | 1,906 | 0.00% | 99.9% |
-| Cold (cache disabled) | server started with `BOARD_CACHE_DISABLED=1` | 147.74 ms | **186.21–244.27 ms** ✅ | 508 | 0.00% | 0% |
+| **Realistic mix (headline)** | 80% default first page + 20% random filters/cursors/search | 17–28 ms | **83–179 ms** ✅ | 597–773 | 0.00–0.13% | 80.3–80.9% |
+| Warm (cache hit) | every VU re-requests one hot URL | 5.53 ms | **88.21 ms** ✅ | 1,036 | 0.00% | 99.87% |
+| Warm, 250 VUs (2.5× ladder step) | same hot URL at 250 VUs | 60.09 ms | **182.15 ms** ✅ | 1,759 | 0.00% | 99.35% |
+| Cold, pool 20 | `BOARD_CACHE_DISABLED=1`, `PG_POOL_MAX=20` | 87.76 ms | **202.46 ms** ❌ (just over) | 471 | 0.00% | 0% |
+| Cold, pool 40 | same, `PG_POOL_MAX=40` | 71.26 ms | **220.91 ms** ❌ (just over) | 417 | 0.00% | 0% |
+| Cold, pool 90 | same, `PG_POOL_MAX=90` | 33.55 ms | **101.89 ms** ✅ | 547 | 0.03% (3 timeouts) | 0% |
 
-All three pass the 200 ms line at 100 VUs. The mix is the number a hackathon board would actually see; the
-warm and cold runs are the two bounds around it. The ranges are two runs of the same configuration on this
-host (see the appendix in §7 — the spread between identical runs is a property of the laptop, not the build).
+At 100 VUs the mix and warm shapes pass the 200 ms line on this host. The cold path is at the line with a
+20–40 connection pool; a 90-connection pool is faster when it works but produced connection timeouts under
+the same load, so it is not a safe default (see §4).
 
-> **Correction to an earlier revision of this document.** The first cold measurement (p95 412.96 ms) was
-> taken with a 50-connection PostgreSQL pool while 100 VUs were in flight, so most of that number was
-> queueing for a connection, not query time. After sizing the pool for the benchmark (`PG_POOL_MAX=90`)
-> the same cold run measures **p95 186–244 ms**. The diagnosis is in §4.
+> **Full-seed note.** The earlier 40–53 ms mix figure in the previous revision was measured at **2,039
+> teams on a quieter host**. At 10,078 teams the default keyset page is still **0.95 ms** (`EXPLAIN
+> ANALYZE`), but the mix's `search` filter is a **57 ms sequential scan** (no trigram index), and this host
+> was at ~58% CPU from an IDE and browsers during the run. The difference is host contention plus the
+> search filter, not the board query. A quiet Linux host is still needed for an authoritative cold number.
 
 ---
 
@@ -45,26 +50,24 @@ k6 run -e VUS=100 -e DURATION=15s -e MIX=true scripts/load-test.js
 TEAMFORGE LOAD TEST SUMMARY  ·  MIX run
 Load:              100 VUs · think time 50 ms · 15s
 
-Requests:          15,146 total (14,146 measured + 1,000 warm-up)
-Throughput:        1,012 req/s
+Requests:          12,507 total (11,507 measured + 1,000 warm-up)
+Throughput:        773 req/s
 Error rate:        0.00%
 
 Latency (measured scenario requests only):
-  p50 7.02 ms · avg 41.75 ms · p90 33.52 ms · p95 52.66 ms · p99 139.59 ms
-  min <0.01 ms (396 req) (k6 zero-floor artifact) · max 12016.74 ms
+  p50 17.39 ms · avg 54.48 ms · p90 60.80 ms · p95 83.29 ms · p99 210.51 ms
+  min <0.01 ms (60 req) · max 13457.44 ms
 
-Cache:             HIT 11,503 · MISS 2,643 · STALE 0 (81.32% hit ratio)
-Phase p50/p95:     waiting 5.58 ms/40.37 ms · blocked 0.00 ms/0.00 ms · connecting 0.00 ms/0.00 ms
-Assertions:        28,292 passed / 0 failed of 28,292 (100.00%)
-  · board 200 OK:            14,146
-  · has teams array:         14,146
+Cache:             HIT 9,303 · MISS 2,204 · STALE 0 (80.85% hit ratio)
+Phase p50/p95:     waiting 13.01 ms/64.91 ms · blocked 0.00 ms/0.00 ms · connecting 0.00 ms/0.00 ms
+Assertions:        23,014 passed / 0 failed of 23,014 (100.00%)
 
-Pass/fail line:    p95 < 200 ms (organizer spec) -> PASS (52.66 ms)
-Internal goal:     p95 < 30 ms (our own target, not a submission gate) -> not met
+Pass/fail line:    p95 < 200 ms (organizer spec) -> PASS (83.29 ms)
 ```
 
-The previous run of the same configuration gave p50 5.95 ms / p95 45.19 ms / 81.53% hits — the mix number
-moves with host load, the shape does not.
+Two earlier runs of the same configuration on a busier host gave p95 145.49 ms (0.13% errors) and
+178.91 ms (0.00% errors); the 0.13% is 13 requests that hit a 15 s pool/connection timeout. All runs are at
+the full 10,078-team seed. The spread is host load, not the build: the default keyset page is 0.95 ms.
 
 ### 2.2 Warm (cache hit) — 100 VUs · 15 s
 
@@ -74,74 +77,62 @@ k6 run -e VUS=100 -e DURATION=15s scripts/load-test.js
 
 ```text
 TEAMFORGE LOAD TEST SUMMARY  ·  WARM run
-Requests:          29,260 total (28,260 measured + 1,000 warm-up)
-Throughput:        1,906 req/s
+Requests:          16,813 total (15,813 measured + 1,000 warm-up)
+Throughput:        1,036 req/s
 Error rate:        0.00%
-  p50 0.53 ms · avg 1.06 ms · p90 2.00 ms · p95 3.43 ms · p99 9.82 ms
-  min <0.01 ms (5972 req) · max 37.77 ms
-Cache:             HIT 28,244 · MISS 0 · STALE 16 (99.94% hit ratio)
-Assertions:        56,520 passed / 0 failed of 56,520 (100.00%)
+  p50 5.53 ms · avg 22.61 ms · p90 47.71 ms · p95 88.21 ms · p99 290.46 ms
+  min <0.01 ms (574 req) · max 1448.36 ms
+Cache:             HIT 15,792 · MISS 0 · STALE 21 (99.87% hit ratio)
+Assertions:        31,626 passed / 0 failed of 31,626 (100.00%)
 ```
 
 ### 2.3 Cold (cache fully disabled) — 100 VUs · 15 s
 
 ```powershell
-$env:BOARD_CACHE_DISABLED='1'; npm start --workspace=server   # responses say X-Cache: BYPASS
-k6 run -e VUS=100 -e DURATION=15s scripts/load-test.js
+$env:BOARD_CACHE_DISABLED='1'; $env:PG_POOL_MAX='20'; npm start --workspace=server
+k6 run -e VARY=true -e VUS=100 -e DURATION=15s scripts/load-test.js
+```
+
+| Pool | p50 | p95 | p99 | req/s | Errors |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 20 | 87.76 ms | 202.46 ms | 360.92 ms | 471 | 0.00% |
+| 40 | 71.26 ms | 220.91 ms | 385.10 ms | 417 | 0.00% |
+| 90 | 33.55 ms | 101.89 ms | 181.57 ms | 547 | 0.03% (3 timeouts) |
+
+The pool-90 run was repeated: p50 30.36 ms / p95 149.06 ms / p99 15,301 ms / 1.11% errors (56 requests
+timed out waiting for a connection). The 15 s timeouts are `pg-pool`'s `connectionTimeoutMillis`; the
+server log shows `Connection terminated due to connection timeout`. That is the pool-90 risk in one line:
+it is the fastest when it works, and it is the only configuration in this report that produced errors.
+
+A repeat cold run with `VARY=true` and the cache left enabled (unique URLs, so the response cache misses)
+gave p50 94.05 ms / p95 190.69 ms with a 3.54% hit ratio on the smaller 2,039-team seed; the full-seed
+cold numbers above use `BOARD_CACHE_DISABLED=1` so every request is a true 0% cache path.
+
+### 2.4 250 VUs — the 2.5× ladder step
+
+```powershell
+k6 run -e VUS=250 -e DURATION=15s scripts/load-test.js
 ```
 
 ```text
-Cache mode:        COLD (server started with BOARD_CACHE_DISABLED=1 — no cache layer ran)
-Requests:          8,302 total (7,302 measured + 1,000 warm-up)
-Throughput:        508 req/s
+TEAMFORGE LOAD TEST SUMMARY  ·  WARM run
+Requests:          27,469 total (26,469 measured + 1,000 warm-up)
+Throughput:        1,759 req/s
 Error rate:        0.00%
-  p50 147.74 ms · p95 186.21 ms · p99 348.55 ms
-Cache:             HIT 0 · MISS 0 · STALE 0 · BYPASS 7,302 (0.00% hit ratio)
-Phase p50/p95:     waiting ~180 ms p95 · blocked 0.00 ms · connecting 0.00 ms
-Assertions:        14,604 passed / 0 failed of 14,604 (100.00%)
-Pass/fail line:    p95 < 200 ms (organizer spec) -> PASS (186.21 ms)
+  p50 60.09 ms · avg 74.46 ms · p90 147.33 ms · p95 182.15 ms · p99 289.99 ms
+Cache:             HIT 26,298 · MISS 0 · STALE 171 (99.35% hit ratio)
+Assertions:        52,938 passed / 0 failed of 52,938 (100.00%)
+Pass/fail line:    p95 < 200 ms (organizer spec) -> PASS (182.15 ms)
 ```
 
-A repeat run of the same configuration gave p95 **244.27 ms** (p50 149.49 ms). The cold number sits at the
-pass line on this host, so treat it as "≈200 ms" rather than a comfortable pass.
+### 2.5 500 VUs — not met locally
 
-**Cold variant — unique URL per iteration** (no server restart, cache stays on):
+The previous 500 VU run on this laptop measured p95 **440 ms** (2,016 req/s, 0.99% errors), with `waiting`
+~200 ms p95 and `blocked`/`connecting` at 0.00 ms, so the time was server-side. **500 VUs is not met
+locally.** It needs a bigger box or k6 on a separate machine before it can be claimed either way. The 250
+VU step above is the highest ladder rung that passes on this host.
 
-```powershell
-k6 run -e VARY=true scripts/load-test.js
-```
-
-p50 94.05 ms · p95 190.69 ms · 3.54% cache hit (a small page space means some URLs repeat).
-
-### 2.4 500 VUs — 15 s
-
-```powershell
-k6 run -e VUS=500 -e DURATION=15s scripts/load-test.js
-```
-
-```text
-Requests:          32,763 total (31,763 measured + 1,000 warm-up)
-Throughput:        2,016 req/s
-Error rate:        0.99%
-  p50 52.68 ms · p90 249.04 ms · p95 440.05 ms · p99 876.21 ms
-Cache:             HIT 31,216 · MISS 324 · STALE 223 (98.28% hit ratio)
-Phase p50/p95:     waiting 36.26 ms/199.97 ms · blocked 0.00 ms/0.00 ms · connecting 0.00 ms/0.00 ms
-Server CPU:        64.1% of one core (sampled across the run)
-```
-
-**This run fails the 200 ms line at 500 VUs.** Two things are worth stating plainly:
-
-- The time is **server-side**: `waiting` (request sent → first byte) is ~200 ms p95 while `blocked` and
-  `connecting` are 0.00 ms, so the client was not queueing sockets.
-- An earlier run of this same configuration showed 4.8% server CPU with p95 521 ms, which I first read as
-  "the client is the bottleneck". That reading was wrong: this run shows 64% CPU and the same shape, and
-  the phase breakdown puts the time in `waiting`. The earlier low-CPU run was a connection-refusal episode
-  (accept-queue overflow), fixed by raising the listen backlog from Node's 511 default to 4096.
-
-So: **500 concurrent users on one 4-core laptop is not met** (440 ms p95, 2,016 req/s). It needs either a
-bigger box or a load generator on a second machine before it can be claimed either way.
-
-### 2.5 Count reconciliation (the arithmetic a reviewer will do)
+### 2.6 Count reconciliation (the arithmetic a reviewer will do)
 
 - k6 counts the 1,000 `setup()` warm-up requests in `http_reqs`, so
   **total = measured + 1,000** in every table above.
@@ -158,64 +149,79 @@ bigger box or a load generator on a second machine before it can be claimed eith
 
 | Configuration | p95 @ 100 VUs | req/s | Cache hit |
 | :--- | :---: | :---: | :---: |
-| Warm (all hits) | 3.43 ms | 1,906 | 99.9% |
-| Realistic mix (80/20) | 40.06–52.66 ms | ~1,000 | 81.4% |
-| Cold — unique URLs | 190.69 ms | 583 | 3.5% |
-| Cold — cache disabled | 186.21–244.27 ms | 508 | 0% |
+| Warm (all hits) | 88.21 ms | 1,036 | 99.87% |
+| Warm, 250 VUs | 182.15 ms | 1,759 | 99.35% |
+| Realistic mix (80/20) | 83–179 ms | 597–773 | 80.3–80.9% |
+| Cold — cache disabled, pool 20/40 | 202.46 / 220.91 ms | 471 / 417 | 0% |
+| Cold — cache disabled, pool 90 | 101.89 ms | 547 | 0% (unstable) |
 
-The cache is worth roughly **40× at p95** on a pure hot key and about **4×** on a realistic mix. That is
-the honest framing: the mix number is the one to quote as "what the board does", and the cold number is the
-one to quote as "what it does when the cache misses".
+The cache is worth roughly **2× at p95** on this loaded host (88 ms warm vs 83–179 ms mix) and more on a
+quiet host (the earlier 2,039-team run showed 3.43 ms warm vs 40–53 ms mix). The cold path is the number to
+quote as "what it does when the cache misses"; the mix is the number a board actually sees.
 
 ---
 
-## 4. Why the Cold Path Is ~150 ms — Diagnosis
+## 4. Why the Cold Path Is ~100–220 ms — Diagnosis
 
-The cold path was measured at p50 ≈ 148 ms, which is far above the query's own cost. Investigated in the
-order that matters:
+The cold path at the full 10,078-team seed is p50 71–88 ms / p95 202–221 ms with a 20–40 connection pool.
+Investigated in the order that matters:
 
 **a) The query plan is not the problem.**
 
 ```text
-EXPLAIN (ANALYZE, BUFFERS) — board query, full table:
- Limit  (cost=0.72..52.95 rows=21) (actual time=0.193..0.652 rows=21 loops=1)
-   Buffers: shared hit=91
-   ->  Nested Loop  (actual time=0.188..0.642 rows=21)
-         ->  Nested Loop  (actual time=0.136..0.508 rows=21)
+EXPLAIN (ANALYZE, BUFFERS) — board query, full table (10,078 teams):
+ Limit  (cost=0.85..43.68 rows=21) (actual time=0.211..0.723 rows=21 loops=1)
+   Buffers: shared hit=89
+   ->  Nested Loop  (actual time=0.205..0.710 rows=21)
+         ->  Nested Loop  (actual time=0.136..0.599 rows=21)
                ->  Index Scan using idx_teams_global_cursor on teams t
-                     (actual time=0.072..0.123 rows=21)
-               ->  Index Scan using users_pkey on users u (loops=21, 0.016 ms each)
-         ->  Memoize on hackathons (12 hits / 9 misses)
+                     (actual time=0.058..0.067 rows=21)
+               ->  Index Scan using users_pkey on users u (loops=21, 0.023 ms each)
+         ->  Memoize on hackathons (20 hits / 1 miss)
 ```
 
-**0.65 ms** end to end, 91 buffers, no sort, no sequential scan. Page depth does not change it.
+**0.95 ms** end to end, 89 buffers, no sort, no sequential scan. Page depth does not change it.
 
-**b) The pool was the first real bottleneck.** `PG_POOL_MAX` was 50 with 100 VUs in flight. A probe that
-does nothing but `pool.connect()` + `SELECT 1` measured the checkout wait directly:
+**b) The `search` filter is the one slow query.** The board's default keyset page is 0.95 ms, but the mix's
+`search` parameter runs `ILIKE '%Team B%'` over `name` and `description`. At 10,078 teams that is a
+sequential scan:
 
-| Pool max | Concurrency | p50 total | p50 checkout wait |
-| :---: | :---: | :---: | :---: |
-| 10 | 100 | 61.58 ms | 60.38 ms |
-| 50 | 100 | 30.24 ms | 28.77 ms |
-| 50 | 50 | 1.48 ms | 0.05 ms |
-| 90 | 100 | 1.66 ms | 0.05 ms |
+```text
+EXPLAIN (ANALYZE, BUFFERS) — search='Team B':
+ Limit  (cost=455.25..455.26 rows=2) (actual time=56.898..56.906 rows=19 loops=1)
+   Buffers: shared hit=346
+   ->  Sort ...
+         ->  Nested Loop ...
+               ->  Seq Scan on teams t  (actual time=0.705..56.164 rows=19 loops=1)
+                     Filter: ((name ~~* '%Team B%') OR (description ~~* '%Team B%'))
+                     Rows Removed by Filter: 10062
+```
 
-With 100 VUs the 50-connection pool spent essentially the whole latency waiting for a connection.
-`PG_POOL_MAX` is now **90** (PostgreSQL `max_connections` is 100, so there is headroom), which is what moved
-the cold run from 413 ms to 186 ms p95.
+**57 ms** in the scan, 280 buffers. The skill filter (`= ANY(needed_skills)`) stays on the index at 1.6 ms.
+A `pg_trgm` GIN index on `name`/`description` is the fix; until then, `search` is the tail of the mix.
 
-**c) Per-row work: none.** The board query returns pre-aggregated columns only — no member lists, no skill
-aggregation, no `COUNT` per row. The `status` column is a `CASE` expression, not a join. `ILIKE` search runs
-only when `search` is supplied, and it is a leading-wildcard scan over 2,000 rows, which is sub-millisecond
-at this size.
+**c) The pool is the second real cost.** A sweep with the real board query (not `SELECT 1`) at 100 VUs:
 
-**d) Seed size.** The database holds **2,039 teams**, not the 10,000 the plan assumes. The board is being
-benchmarked at 20% of its target size, so every number here is, if anything, optimistic for the query and
-pessimistic for nothing. Re-seed before quoting capacity at 10,000.
+| `PG_POOL_MAX` | p50 | p95 | p99 | req/s | Errors |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 20 | 87.76 ms | 202.46 ms | 360.92 ms | 471 | 0.00% |
+| 40 | 71.26 ms | 220.91 ms | 385.10 ms | 417 | 0.00% |
+| 90 | 33.55 ms | 101.89 ms | 181.57 ms | 547 | 0.03% (3 timeouts) |
 
-**e) The residual ~148 ms is host contention.** After the pool fix, the query is still 0.65 ms while a
-request takes ~148 ms. A trivial `/health` endpoint — one `SELECT 1` — degrades the same way at the same
-concurrency:
+A repeat of the 90 run produced p99 15,301 ms and 1.11% errors: 56 requests hit `pg-pool`'s 15 s
+`connectionTimeoutMillis`, and the server log shows `Connection terminated due to connection timeout`.
+`max_connections` is 100; a 90-connection pool plus the dedicated LISTEN connection, the superuser-reserved
+slots and any seed/test client leaves almost nothing. **90 is not a safe default.** `PG_POOL_MAX` is now an
+env var with a default of **20** (`server/.env.example` documents it per host).
+
+**d) Per-row work: none.** The board query returns pre-aggregated columns only — no member lists, no skill
+aggregation, no `COUNT` per row. The `status` column is a `CASE` expression, not a join.
+
+**e) Seed size.** The database now holds **10,078 teams / 61,515 users** (50,000 seed users plus test rows),
+so the numbers are at the planned size, not 20% of it.
+
+**f) The residual is host contention.** The query is 0.95 ms while a request takes 70–220 ms. A trivial
+`/health` endpoint — one `SELECT 1` — degrades the same way at the same concurrency:
 
 | Endpoint | Concurrency 10 | Concurrency 100 |
 | :--- | :---: | :---: |
@@ -224,9 +230,10 @@ concurrency:
 
 The server also reported `app;dur=` (handler time, via `Server-Timing`) of ~92 ms p50 at 100 concurrency for
 an uncached board read, and the per-query log showed `SELECT` durations of 30–45 ms for the same query that
-takes 0.65 ms in isolation. Node, PostgreSQL and k6 are all sharing four cores on a laptop with an IDE and
-browsers open. **A clean cold number needs a quiet Linux host** (Docker Compose or a CI runner); on this box
-the cold path cannot be separated from the CPU scheduler.
+takes 0.95 ms in isolation. Node, PostgreSQL and k6 are all sharing four cores on a laptop with an IDE and
+browsers open (the IDE alone had ~13,400 CPU-seconds at the time of the run). **A clean cold number needs a
+quiet Linux host** (Docker Compose or a CI runner); on this box the cold path cannot be separated from the
+CPU scheduler.
 
 ---
 
@@ -236,11 +243,22 @@ the cold path cannot be separated from the CPU scheduler.
 `boardCache.invalidate()`, which coalesced wipes to one per 500 ms and returned early otherwise. A second
 write inside that window therefore left the cache serving the pre-write board for the rest of its 5 s TTL.
 `server/src/utils/singleFlight.ts` now always invalidates (clearing two bounded maps is cheap), and cached
-entries carry the version they were computed under, so an in-flight query that started before a write cannot
-repopulate the cache afterwards.
+entries carry the version they were computed under.
 
-Covered by two tests in `server/tests/api/teams.test.ts`:
+**In-flight queries are keyed by version.** Version-guarded writes fix a stale refill, but there is a second
+race: a request that arrives *after* a write could still join a query that was already in flight *before*
+it, and be handed the pre-write board even though that result is never cached. The single-flight map is now
+keyed by `query@version`; a post-write caller starts a fresh query instead of joining the old one. The old
+promise still resolves, but its result is discarded by the version check and cannot repopulate the cache.
 
+Covered by four tests (the suite is now 33 tests):
+
+- **`server/tests/cache/singleFlight.test.ts`** — unit tests: concurrent callers at the same version still
+  coalesce; a caller that arrives after `invalidate()` runs its own query and gets the post-write value; the
+  stale in-flight result does not overwrite the newer cache entry.
+- **`server/tests/api/board-cache-inflight.test.ts`** — HTTP-level regression: holds a slow board query
+  open, commits a real team write, issues a new GET, and asserts the new GET shows the write. This fails
+  against the old version-less in-flight key.
 - **`27. A join is visible on the next board read`** — creates a team, primes the raw HTTP cache, has a user
   join, has the leader accept, then reads the board immediately and asserts `member_count` is 2. This test
   fails against the old throttled invalidation.
@@ -269,15 +287,31 @@ Seat-deciding reads always go to PostgreSQL:
 | :--- | :--- | :--- |
 | SSE-connected | ~0 ms | Invalidate runs before the broadcast; the refetch is a miss. |
 | Polling | ~0 ms after any write | Writes invalidate immediately. The 5 s TTL only bounds staleness on a board with no writes at all. |
-| In-flight query racing a write | 0 ms | The result is discarded by the version check instead of repopulating the cache. |
+| In-flight query racing a write | 0 ms | In-flight work is keyed by `query@version`, so a post-write caller runs a fresh query; the stale result is discarded and cannot repopulate the cache. |
+
+---
+
+## 5.1 Hot-Seat Starvation Under Board Load
+
+The 50-way last-seat race was run while a 100 VU warm board load was in flight (30 s k6 run). Result:
+**50 requests completed in 9,795 ms, 1 winner / 49 conflicts, 0 errors, 2/2 tests pass.** The same race
+without board load completed in 7,541–9,567 ms. The difference is within host noise at 50 racers; no 503s
+appeared.
+
+The risk the reviewer named is real at 250 racers: up to 90 pool connections can sit blocked on one team's
+row lock, and board reads queue behind them. The fix is a small per-team in-process async queue in front of
+the guarded `UPDATE` (the database stays the authority), or a separate small read pool. That is listed in
+`docs/DESIGN_DOC.md` under "What We Would Do With One More Week".
 
 ---
 
 ## 6. How to Reproduce
 
 ```powershell
-# 0. One-time: seed 10,000 teams if you want the planned size
-npx tsx scripts/seed-demo.ts            # currently seeds 2,039
+# 0. Seed the planned size (50,000 users, 10,000 teams)
+cd server
+$env:SEED_USERS='50000'; $env:SEED_TEAMS='10000'
+npx tsx src/db/seed.ts
 
 # 1. Warm (hot key)
 k6 run -e VUS=100 -e DURATION=15s scripts/load-test.js
@@ -288,12 +322,16 @@ k6 run -e VUS=100 -e DURATION=15s -e MIX=true scripts/load-test.js
 # 3. Cold, cache bypassed by unique URLs (no server restart)
 k6 run -e VARY=true scripts/load-test.js
 
-# 4. Cold, cache fully disabled (true 0% cache)
-$env:BOARD_CACHE_DISABLED='1'; npm start --workspace=server
-k6 run -e VUS=100 -e DURATION=15s scripts/load-test.js
+# 4. Cold, cache fully disabled (true 0% cache), and the pool sweep
+$env:BOARD_CACHE_DISABLED='1'
+foreach ($pool in 20, 40, 90) {
+  $env:PG_POOL_MAX="$pool"
+  npm start --workspace=server          # restart the server per pool size
+  k6 run -e VARY=true -e VUS=100 -e DURATION=15s scripts/load-test.js
+}
 
-# 5. 500 VUs
-k6 run -e VUS=500 -e DURATION=15s scripts/load-test.js
+# 5. 250 VUs (2.5x ladder step) — 500 VUs is not met on this laptop
+k6 run -e VUS=250 -e DURATION=15s scripts/load-test.js
 
 # 6. Both cold and warm side by side in one report
 k6 run -e COMPARE=true scripts/load-test.js
@@ -303,7 +341,7 @@ Every run rewrites `docs/load-test-report.html` and `docs/load-test-runs/last-ru
 mode, the cache hit ratio, the phase breakdown and the reconciliation line.
 
 **What still needs a second machine:** the 500 VU number, and a clean cold number. On one 4-core laptop the
-load generator and the server compete for the same cores; the phase breakdown in §2.4 is how you can tell.
+load generator and the server compete for the same cores; the phase breakdown in §4f is how you can tell.
 
 ---
 
@@ -313,16 +351,29 @@ load generator and the server compete for the same cores; the phase breakdown in
 | :--- | :--- |
 | CPU | Intel Core i5-8350U (4 cores / 8 threads) |
 | Node.js | v22.17.1 |
-| PostgreSQL | 16, local instance, `shared_buffers=128MB` |
+| PostgreSQL | 17, local instance, `shared_buffers=128MB` |
 | k6 | v2.1.0 |
-| Seed data | 2,039 teams (planned: 10,000) |
-| Host load | IDE + browsers open; 16–65% CPU outside the test |
-| Pool | `PG_POOL_MAX=90` |
+| Seed data | 10,078 teams / 61,515 users (planned: 10,000 teams / 50,000 users) |
+| Host load | IDE + browsers open; ~58% CPU outside the test |
+| Pool | `PG_POOL_MAX=20` default; swept 20 / 40 / 90 |
 
-### Appendix — spread across identical runs
+### Appendix — full-seed runs on this host
 
-The host is not quiet, and identical configurations move a lot. Every run below passed the 200 ms line and
-had 0.00% errors; only the tail moves.
+| Run (15 s) | Measured req | p50 | p95 | p99 | req/s | Errors |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| Mix 100 VUs (A) | 11,191 | 28.41 ms | 178.91 ms | 569.17 ms | 750 | 0.00% |
+| Mix 100 VUs (B) | 8,829 | 19.12 ms | 145.49 ms | 314.14 ms | 597 | 0.13% |
+| Mix 100 VUs (C, clean) | 11,507 | 17.39 ms | 83.29 ms | 210.51 ms | 773 | 0.00% |
+| Warm 100 VUs | 15,813 | 5.53 ms | 88.21 ms | 290.46 ms | 1,036 | 0.00% |
+| Warm 250 VUs | 26,469 | 60.09 ms | 182.15 ms | 289.99 ms | 1,759 | 0.00% |
+| Cold 100 VUs, pool 20 | 9,032 | 87.76 ms | 202.46 ms | 360.92 ms | 471 | 0.00% |
+| Cold 100 VUs, pool 40 | 7,886 | 71.26 ms | 220.91 ms | 385.10 ms | 417 | 0.00% |
+| Cold 100 VUs, pool 90 | 9,531 | 33.55 ms | 101.89 ms | 181.57 ms | 547 | 0.03% |
+
+### Appendix — earlier quiet-host warm runs (2,039-team seed)
+
+The host was quieter in the earlier session and the same warm configuration moved a lot. These runs are
+kept as the low end of the spread; they are not comparable to the full-seed numbers above.
 
 | Run (100 VUs, 15 s, warm) | Measured req | p50 | p95 | p99 | req/s |
 | :--- | :---: | :---: | :---: | :---: | :---: |

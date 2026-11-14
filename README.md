@@ -14,9 +14,9 @@
 
 | Requirement | Specification | Our Implementation | Status |
 | :--- | :--- | :--- | :---: |
-| **Participants Seeded** | 10,000 participants | **10,000 users seeded (capable of 50,000)** | ✅ Complete |
-| **Teams Seeded** | 2,000 teams | **2,000 teams seeded (capable of 10,000)** | ✅ Complete |
-| **Board Latency (p95)** | < 200 ms @ 100 VUs | **p95 3.43 ms warm (cache hit) · 45–53 ms realistic mix · 186–244 ms with the cache disabled** | ✅ Complete (500 VUs: 440 ms — not met) |
+| **Participants Seeded** | 10,000 participants | **50,000 seed users (61,515 rows incl. test data)** | ✅ Complete |
+| **Teams Seeded** | 2,000 teams | **10,000 seed teams (10,078 rows)** | ✅ Complete |
+| **Board Latency (p95)** | < 200 ms @ 100 VUs | **Full seed (10,078 teams): 83–179 ms realistic mix · 88 ms warm · 202–221 ms cold with a 20–40 pool** | ✅ Pass at 100 VUs (500 VUs: not met locally) |
 | **Last-Seat Race** | 50 simultaneous racers | **50 to 250 simultaneous racers** | ✅ Proven |
 | **Winners per Last Seat** | Exactly 1 winner | **Exactly 1 winner (0 double-joins)** | ✅ Proven |
 | **Rules Enforcement** | Min/max sizes, 1 team/user | **Postgres CHECK & UNIQUE constraints** | ✅ Proven |
@@ -26,7 +26,7 @@
 | **Security & Entropy** | Rate limits, secure codes | **Crockford Base32 + SHA-256 + Rate limits** | ✅ Proven |
 | **Audit Logs** | Who, what, when | **Append-only immutable audit_logs table** | ✅ Proven |
 | **Teammate Suggestions** | Skill + timezone scoring | **Formula scoring with explicit breakdown** | ✅ Proven |
-| **Test Suite** | At least 20 API tests in CI | **27 tests passing in Vitest & GitHub Actions** | ✅ Proven |
+| **Test Suite** | At least 20 API tests in CI | **33 tests passing in Vitest & GitHub Actions** | ✅ Proven |
 | **Frontend UI** | Phone & keyboard-friendly | **React 18 + Tailwind (TeamForge UI)** | ✅ Proven |
 | **Deployment** | Free-tier live URL | **render.yaml / Docker Compose** | ✅ Ready |
 | **Bonus: Rollback UI** | Optimistic UI with rollback | **Instant toast rollback on 409 rejection** | ✅ Proven |
@@ -103,11 +103,11 @@ npm run load-test
 - **[Technical Architecture & Concurrency Spec](docs/ARCHITECTURE_AND_EXECUTION_PLAN.md)**
 
 ### Board Read Optimization Path
-Even fully cached, the board endpoint dominates read traffic during a race. Three layers keep p95 in single-digit milliseconds:
+Even fully cached, the board endpoint dominates read traffic during a race. Three layers keep the hot path cheap:
 
-1. **Keyset (cursor) pagination** — an index seek instead of an `OFFSET` scan, so page depth does not change cost.
-2. **Single-flight DB coalescing** — concurrent identical queries share one PostgreSQL execution.
-3. **In-process HTTP response cache** — validated board responses are pre-serialized into a reusable `Buffer` and served directly from the Node HTTP layer for 5 s, then served stale for up to 30 s while one background refresh repopulates the entry. Writes invalidate immediately (an earlier 500 ms coalescing window could drop an invalidation and serve a pre-write board for the rest of the TTL — fixed, with a regression test). The SSE/LISTEN handler invalidates **before** broadcasting, so a refetch triggered by a live event cannot be served the pre-change copy. Board reads are the only thing cached: join, accept and team-detail reads always go to PostgreSQL, and responses are `Cache-Control: no-store` so a browser cannot hold a pre-join copy. Measured with the cache disabled, the same endpoint is 186–244 ms p95 at 100 VUs versus 45–53 ms on the realistic mix and 3.43 ms on a pure hot key.
+1. **Keyset (cursor) pagination** — an index seek instead of an `OFFSET` scan, so page depth does not change cost. The default first page is **0.95 ms** at 10,078 teams (`EXPLAIN ANALYZE`).
+2. **Single-flight DB coalescing** — concurrent identical queries share one PostgreSQL execution. In-flight work is keyed by the cache version, so a read that starts before a write cannot hand a later caller the pre-write board.
+3. **In-process HTTP response cache** — validated board responses are pre-serialized into a reusable `Buffer` and served directly from the Node HTTP layer for 5 s, then served stale for up to 30 s while one background refresh repopulates the entry. Writes invalidate immediately (an earlier 500 ms coalescing window could drop an invalidation and serve a pre-write board for the rest of the TTL — fixed, with a regression test). The SSE/LISTEN handler invalidates **before** broadcasting, so a refetch triggered by a live event cannot be served the pre-change copy. Board reads are the only thing cached: join, accept and team-detail reads always go to PostgreSQL, and responses are `Cache-Control: no-store` so a browser cannot hold a pre-join copy. Measured with the cache disabled, the same endpoint is **202–221 ms p95** at 100 VUs with a 20–40 connection pool; the realistic mix is **83–179 ms p95** at 10,078 teams on this host. The default first page is under 1 ms; the `search` filter is a 57 ms sequential scan at this size and is the next thing to index.
 
 ---
 

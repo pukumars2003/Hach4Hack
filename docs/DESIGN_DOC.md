@@ -46,15 +46,17 @@ RETURNING member_count;
 | **Guarded `UPDATE`** | `SELECT ... FOR UPDATE` | Saves a full database round-trip while obtaining the identical row lock until COMMIT. |
 | **PostgreSQL-Transactional Idempotency** | Redis Distributed Lock | Redis locks create a split-brain vulnerability: a server crash between Redis release and DB commit allows duplicate retries. In-Postgres storage guarantees atomic consistency. |
 | **SSE via `LISTEN/NOTIFY`** | WebSockets / Outbox table | Eliminates dual-write bugs. Postgres delivers `NOTIFY` **only upon transaction COMMIT**. SSE reconnects natively and passes through free-tier HTTP/2 proxies. |
-| **Keyset Cursor Pagination** | `OFFSET / LIMIT` | At 10,000 teams, `OFFSET 9500` scans 9,520 rows. Keyset pagination `(created_at, id) < ($t, $id)` uses an index scan in **< 1 ms**. |
-| **Single-Flight Coalescing Cache** | Redis Caching Cluster | In-memory 1-second single-flight deduplication handles thundering herds without external network hops. Only the read-only board collection is cached (5 s fresh + 30 s stale-while-revalidate); join, accept and team-detail reads always hit PostgreSQL, and board responses are `Cache-Control: no-store` so browsers cannot hold a pre-join copy. Every write invalidates immediately and bumps a version that in-flight queries are checked against, so worst-case staleness is ~0 ms for every client, not just SSE subscribers (whose invalidation still runs before the event is broadcast). The 5 s TTL only bounds staleness on a board with no writes at all. |
+| **Keyset Cursor Pagination** | `OFFSET / LIMIT` | At 10,000 teams, `OFFSET 9500` scans 9,520 rows. Keyset pagination `(created_at, id) < ($t, $id)` uses an index scan in **0.95 ms** at the full 10,078-team seed (`EXPLAIN ANALYZE`, 89 buffers). |
+| **Single-Flight Coalescing Cache** | Redis Caching Cluster | In-memory 1-second single-flight deduplication handles thundering herds without external network hops. Only the read-only board collection is cached (5 s fresh + 30 s stale-while-revalidate); join, accept and team-detail reads always hit PostgreSQL, and board responses are `Cache-Control: no-store` so browsers cannot hold a pre-join copy. Every write invalidates immediately and bumps a version; in-flight queries are keyed by `query@version`, so a read that starts before a write cannot join the pre-write query and cannot repopulate the cache afterwards. Worst-case staleness is ~0 ms for every client, not just SSE subscribers (whose invalidation still runs before the event is broadcast). The 5 s TTL only bounds staleness on a board with no writes at all. |
 
 ---
 
 ### 4. What We Would Do With One More Week
 
 1. **Read-Replica Horizontal Scaling**: Introduce transaction-mode connection poolers (PgBouncer) for queries, routing writes to primary and reads to replicas with an out-of-band SSE listener sidecar.
-2. **Vector Similarity Matching (`pgvector`)**: Replace heuristic Jaccard scoring with dense embeddings for candidate bios and project briefs to discover non-obvious skill alignments.
-3. **Consensus Team Expansion Protocol**: A multi-member in-app voting mechanism allowing teams to collectively vote to expand capacity beyond standard thresholds.
-4. **Passkey (WebAuthn) Passwordless Authentication**: FIDO2 hardware-backed authentication replacing passwords for zero-trust login.
+2. **Per-team in-process queue**: During a 250-way race up to 90 pool connections can sit blocked on one team's row lock, and board reads queue behind them. A small per-team async queue in front of the guarded `UPDATE` keeps one backend per team without weakening the database as the authority.
+3. **Trigram index for board search**: `search` uses a leading-wildcard `ILIKE` and is a 57 ms sequential scan at 10,078 teams (the default keyset page is 0.95 ms). A `pg_trgm` GIN index on `name`/`description` would make it an index scan.
+4. **Vector Similarity Matching (`pgvector`)**: Replace heuristic Jaccard scoring with dense embeddings for candidate bios and project briefs to discover non-obvious skill alignments.
+5. **Consensus Team Expansion Protocol**: A multi-member in-app voting mechanism allowing teams to collectively vote to expand capacity beyond standard thresholds.
+6. **Passkey (WebAuthn) Passwordless Authentication**: FIDO2 hardware-backed authentication replacing passwords for zero-trust login.
 
