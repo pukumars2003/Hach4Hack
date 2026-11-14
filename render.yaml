@@ -21,7 +21,7 @@ services:
       - key: ADMIN_USERNAME
         value: adminbro
       - key: ADMIN_PASSWORD
-        value: "Demo@12345"
+        value: "DemoAdmin#2026"
       - key: PG_POOL_MAX
         value: "20"
 

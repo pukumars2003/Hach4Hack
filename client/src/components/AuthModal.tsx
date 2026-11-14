@@ -147,7 +147,7 @@ export function AuthModal({
                 <span className="text-[11px] font-semibold text-muted tracking-wider uppercase">Public demo credentials</span>
               </div>
               <div className="font-mono text-xs text-charcoal mt-2 space-y-1">
-                <p>Admin: <span className="font-semibold">adminbro</span> / <span className="font-semibold">Demo@12345</span></p>
+                <p>Admin: <span className="font-semibold">adminbro</span> / <span className="font-semibold">DemoAdmin#2026</span></p>
                 <p>Usernames: <span className="font-semibold">user40000 through user40010</span></p>
                 <p>Participant password: <span className="font-semibold">Demo@12345</span></p>
               </div>
