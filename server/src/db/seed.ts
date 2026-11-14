@@ -50,6 +50,7 @@ export async function seedDatabase(options: { userCount?: number; teamCount?: nu
         const paddedIdx = String(idx + 1).padStart(5, '0');
         userObjects.push({
           email: `user${paddedIdx}@demo.test`,
+          username: `user${paddedIdx}`,
           password_hash: PRECOMPUTED_SEED_PASSWORD_HASH,
           name: `Demo User ${paddedIdx}`,
           skills: [
@@ -67,10 +68,11 @@ export async function seedDatabase(options: { userCount?: number; teamCount?: nu
       }
 
       const userInsert = await pool.query(
-        `INSERT INTO users (email, password_hash, name, skills, interests, timezone_offset_minutes, discovery_enabled)
-         SELECT email, password_hash, name, skills, interests, timezone_offset_minutes, discovery_enabled
+        `INSERT INTO users (email, username, password_hash, name, skills, interests, timezone_offset_minutes, discovery_enabled)
+         SELECT email, username, password_hash, name, skills, interests, timezone_offset_minutes, discovery_enabled
          FROM jsonb_to_recordset($1::jsonb) AS x(
            email varchar,
+           username varchar,
            password_hash varchar,
            name varchar,
            skills text[],
@@ -80,7 +82,8 @@ export async function seedDatabase(options: { userCount?: number; teamCount?: nu
          )
          ON CONFLICT (email) DO UPDATE SET 
            password_hash = EXCLUDED.password_hash,
-           name = EXCLUDED.name
+           name = EXCLUDED.name,
+           username = EXCLUDED.username
          RETURNING id`,
         [JSON.stringify(userObjects)]
       );

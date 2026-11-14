@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowRight, Shield } from 'lucide-react';
 import { api, setAuthToken } from '../api/client.js';
 import { User } from '../types.js';
 
@@ -12,13 +12,8 @@ export function AuthModal({
   onClose: () => void;
   onLoginSuccess: (user: User) => void;
 }) {
-  const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState('adminbro');
-  const [password, setPassword] = useState('hireme');
-  // const [password, setPassword] = useState('Demo@12345'); // removed duplicate
-
-  const [name, setName] = useState('Ajay');
-  const [skills, setSkills] = useState('React, TypeScript, Postgres');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,24 +25,10 @@ export function AuthModal({
     setError(null);
 
     try {
-      if (isRegister) {
-        const res = await api.register({
-          email,
-          password,
-          name: name || email.split('@')[0],
-          skills: skills.split(',').map((s) => s.trim()).filter(Boolean),
-          interests: ['Distributed Systems', 'Full Stack'],
-          timezoneOffsetMinutes: 330, // Default UTC+5:30
-        });
-        setAuthToken(res.token);
-        onLoginSuccess(res.user);
-        onClose();
-      } else {
-        const res = await api.login({ email, password });
-        setAuthToken(res.token);
-        onLoginSuccess(res.user);
-        onClose();
-      }
+      const res = await api.login({ username, password });
+      setAuthToken(res.token);
+      onLoginSuccess(res.user);
+      onClose();
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please verify credentials.');
     } finally {
@@ -55,126 +36,76 @@ export function AuthModal({
     }
   };
 
-  const handleQuickFill = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('Demo@12345');
-    setIsRegister(false);
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-canvas border border-cardBorder rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-white/80 border border-cardBorder text-muted hover:text-charcoal flex items-center justify-center transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal/80 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-[960px] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row animate-scale-in">
 
-        {/* Left Side: Dark Pine Banner */}
-        <div className="w-full md:w-[420px] bg-pine text-[#F3F1EA] p-8 md:p-10 flex flex-col justify-between gap-8 shrink-0">
-          <div className="flex items-center gap-3 font-bold text-xl">
-            <div className="w-9 h-9 rounded-lg bg-mint text-pine flex items-center justify-center font-bold text-lg">
-              T
+        {/* Left panel — branding */}
+        <div className="w-full md:w-[440px] bg-charcoal text-white p-8 md:p-10 flex flex-col justify-between gap-8 shrink-0 relative overflow-hidden">
+          {/* Decorative accent */}
+          <div className="absolute top-0 right-0 w-40 h-40 bg-lime/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-lime/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+          <div className="relative z-10 flex flex-col gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-lime text-charcoal flex items-center justify-center font-extrabold text-lg">
+                CS
+              </div>
+              <span className="font-bold text-xl tracking-tight">CyberSwaRaksha</span>
             </div>
-            <span>TeamForge</span>
+
+            <div className="flex flex-col gap-3">
+              <h1 className="text-3xl md:text-[2.5rem] font-extrabold leading-[1.1] tracking-tight">
+                Race-proof team<br />formation.
+              </h1>
+              <p className="text-[15px] leading-relaxed text-neutral-400 max-w-[340px]">
+                One seat, one claim. Build your team with zero double bookings and real-time board updates.
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <h1 className="text-3xl md:text-4xl font-bold leading-tight">
-              Find your team.<br />One seat, one winner.
-            </h1>
-            <p className="text-[15px] leading-relaxed text-[#C9D8D5]">
-              Create a team, share an invite code, or ask to join. The board updates live for everyone, and a seat can never be taken twice.
-            </p>
-          </div>
-
-          <div className="flex gap-6 text-[13px] text-[#C9D8D5] pt-4 border-t border-[#1B4743]">
-            <div className="flex flex-col gap-1">
-              <span className="text-2xl font-bold text-[#F3F1EA]">1</span>
-              <span>team per person</span>
+          <div className="relative z-10 grid grid-cols-3 gap-4 pt-6 border-t border-neutral-700">
+            <div className="flex flex-col">
+              <span className="text-2xl font-extrabold text-lime">1</span>
+              <span className="text-xs text-neutral-400 mt-0.5">team per person</span>
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-2xl font-bold text-[#F3F1EA]">0</span>
-              <span>double bookings</span>
+            <div className="flex flex-col">
+              <span className="text-2xl font-extrabold text-lime">0</span>
+              <span className="text-xs text-neutral-400 mt-0.5">double bookings</span>
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-2xl font-bold text-[#F3F1EA]">Live</span>
-              <span>board updates</span>
+            <div className="flex flex-col">
+              <span className="text-2xl font-extrabold text-lime">Live</span>
+              <span className="text-xs text-neutral-400 mt-0.5">board updates</span>
             </div>
           </div>
         </div>
 
-        {/* Right Side: Form */}
-        <div className="flex-1 p-6 md:p-10 flex flex-col justify-center">
-          <div className="max-w-[360px] mx-auto w-full flex flex-col gap-5">
-            {/* Tab Switcher */}
-            <div className="flex gap-1 bg-[#E8E6DE] rounded-[10px] p-1">
-              <button
-                type="button"
-                onClick={() => setIsRegister(false)}
-                className={`flex-1 h-9 rounded-lg text-[14px] font-semibold transition-colors ${
-                  !isRegister ? 'bg-white text-charcoal shadow-sm' : 'text-muted hover:text-charcoal'
-                }`}
-              >
-                Sign in
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsRegister(true)}
-                className={`flex-1 h-9 rounded-lg text-[14px] font-semibold transition-colors ${
-                  isRegister ? 'bg-white text-charcoal shadow-sm' : 'text-muted hover:text-charcoal'
-                }`}
-              >
-                Create account
-              </button>
+        {/* Right panel — login form */}
+        <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
+          <div className="max-w-[360px] mx-auto w-full flex flex-col gap-6">
+            <div>
+              <h2 className="text-2xl font-bold text-charcoal">Judge Sign In</h2>
+              <p className="text-sm text-muted mt-1">Choose an admin or participant demo account.</p>
             </div>
 
             {error && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-danger text-xs flex items-center gap-2">
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-danger text-sm flex items-center gap-2 animate-slide-down">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {isRegister && (
-                <>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[13px] font-semibold text-charcoal">Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. Ajay Kumar"
-                      className="h-11 px-3.5 border border-borderMuted rounded-[10px] bg-white text-charcoal text-[15px] focus:outline-none focus:border-teal"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[13px] font-semibold text-charcoal">Skills (comma separated)</label>
-                    <input
-                      type="text"
-                      value={skills}
-                      onChange={(e) => setSkills(e.target.value)}
-                      placeholder="React, TypeScript, Postgres"
-                      className="h-11 px-3.5 border border-borderMuted rounded-[10px] bg-white text-charcoal text-[15px] focus:outline-none focus:border-teal"
-                    />
-                  </div>
-                </>
-              )}
-
               <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-semibold text-charcoal">Email</label>
+                <label className="text-[13px] font-semibold text-charcoal">Username</label>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="user00001@demo.test"
-                  className="h-11 px-3.5 border border-borderMuted rounded-[10px] bg-white text-charcoal text-[15px] focus:outline-none focus:border-teal"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="user40000"
+                  className="h-12 px-4 border border-cardBorder rounded-xl bg-canvas text-charcoal text-[15px] focus:outline-none focus:border-charcoal focus:ring-1 focus:ring-charcoal/10 placeholder:text-subtle"
                 />
               </div>
 
@@ -183,48 +114,42 @@ export function AuthModal({
                 <input
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Demo@12345"
-                  className="h-11 px-3.5 border border-borderMuted rounded-[10px] bg-white text-charcoal text-[15px] focus:outline-none focus:border-teal"
+                  placeholder="Password"
+                  className="h-12 px-4 border border-cardBorder rounded-xl bg-canvas text-charcoal text-[15px] focus:outline-none focus:border-charcoal focus:ring-1 focus:ring-charcoal/10 placeholder:text-subtle"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="h-11 rounded-[10px] bg-teal hover:bg-teal-hover text-white font-semibold text-[15px] transition-colors shadow-sm disabled:opacity-50 mt-1"
+                className="h-12 rounded-xl bg-charcoal hover:bg-neutral-800 text-white font-semibold text-[15px] shadow-sm disabled:opacity-50 mt-2 flex items-center justify-center gap-2 group"
               >
-                {isSubmitting ? 'Verifying...' : isRegister ? 'Create account' : 'Sign in'}
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Verifying...
+                  </span>
+                ) : (
+                  <>
+                    Sign in
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  </>
+                )}
               </button>
             </form>
 
-            {/* Seeded Demo Accounts Box */}
-            <div className="border border-dashed border-subtle rounded-xl p-3.5 flex flex-col gap-2 bg-[#FBFAF6]">
-              <div className="text-[11px] font-semibold text-muted tracking-wider uppercase">
-                DEMO ACCOUNTS (SEEDED)
+            <div className="border border-cardBorder rounded-xl p-4 bg-canvas">
+              <div className="flex items-center gap-2">
+                <Shield className="w-3.5 h-3.5 text-muted" />
+                <span className="text-[11px] font-semibold text-muted tracking-wider uppercase">Public demo credentials</span>
               </div>
-              <div className="font-mono text-[12px] leading-relaxed text-charcoal">
-                <span
-                  onClick={() => handleQuickFill('user00001@demo.test')}
-                  className="cursor-pointer hover:text-teal font-semibold underline decoration-dotted"
-                  title="Click to fill"
-                >
-                  user00001@demo.test
-                </span>{' '}
-                · Demo@12345
-                <br />
-                <span
-                  onClick={() => handleQuickFill('user00002@demo.test')}
-                  className="cursor-pointer hover:text-teal font-semibold underline decoration-dotted"
-                  title="Click to fill"
-                >
-                  user00002@demo.test
-                </span>{' '}
-                · Demo@12345
-              </div>
-              <div className="text-[11px] text-muted">
-                Click any email to autofill. Or register with any email & password.
+              <div className="font-mono text-xs text-charcoal mt-2 space-y-1">
+                <p>Admin: <span className="font-semibold">adminbro</span> / <span className="font-semibold">Demo@12345</span></p>
+                <p>Usernames: <span className="font-semibold">user40000 through user40010</span></p>
+                <p>Participant password: <span className="font-semibold">Demo@12345</span></p>
               </div>
             </div>
           </div>

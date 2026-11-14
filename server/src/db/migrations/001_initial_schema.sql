@@ -21,6 +21,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email VARCHAR(255) NOT NULL UNIQUE,
+  username VARCHAR(32),
   password_hash VARCHAR(255) NOT NULL,
   name VARCHAR(100) NOT NULL,
   avatar_url TEXT,
@@ -30,6 +31,14 @@ CREATE TABLE IF NOT EXISTS users (
   discovery_enabled BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(32);
+UPDATE users
+SET username = split_part(email, '@', 1)
+WHERE username IS NULL
+  AND email ~ '^user[0-9]{5}@demo[.]test$';
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users (username) WHERE username IS NOT NULL;
 
 -- 3. Hackathons Table
 CREATE TABLE IF NOT EXISTS hackathons (

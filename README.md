@@ -65,7 +65,10 @@ Browser ──> Render (React + Fastify API + SSE, Docker) ──> Render Postgr
 3. Wait for the first deployment, then open [raceproof-app.onrender.com](https://raceproof-app.onrender.com).
    The client and API share the same
    origin, so no client API URL or CORS configuration is needed. The server runs database migrations on
-   startup.
+   startup and provisions the public demo admin `adminbro` / `Demo@12345`. Judges can also use the
+   seeded participant accounts `user40000` through `user40010`, all with password `Demo@12345`.
+   These credentials are intentionally public for judging and must not be reused for a private or
+   production admin account.
 
 If creating a service manually instead of using the Blueprint, choose **Docker** as the environment,
 leave Root Directory empty, and set Dockerfile path to `server/Dockerfile`. You must also provide

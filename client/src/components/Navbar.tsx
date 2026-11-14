@@ -35,28 +35,28 @@ export function Navbar({
   };
 
   return (
-    <header className="h-16 bg-white border-b border-cardBorder sticky top-0 z-40 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 h-full flex items-center justify-between gap-6">
-        {/* Brand Logo & Name */}
-        <div className="flex items-center gap-8">
+    <header className="h-16 bg-charcoal sticky top-0 z-40 border-b border-neutral-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 h-full flex items-center justify-between gap-4">
+        {/* Brand */}
+        <div className="flex items-center gap-6 lg:gap-8">
           <div
             onClick={() => setActiveTab('board')}
-            className="flex items-center gap-2.5 font-bold text-lg cursor-pointer select-none text-charcoal"
+            className="flex items-center gap-2.5 font-bold text-lg cursor-pointer select-none text-white"
           >
-            <div className="w-[30px] h-[30px] rounded-lg bg-teal text-white flex items-center justify-center font-bold text-base shadow-sm">
-              T
+            <div className="w-[30px] h-[30px] rounded-lg bg-lime text-charcoal flex items-center justify-center font-extrabold text-sm">
+              CS
             </div>
-            <span className="tracking-tight text-[18px]">TeamForge</span>
+            <span className="tracking-tight text-[17px] hidden sm:inline">CyberSwaRaksha</span>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-2">
+          {/* Navigation */}
+          <nav className="hidden md:flex items-center gap-1">
             <button
               onClick={() => setActiveTab('board')}
-              className={`px-3.5 py-2 rounded-lg font-semibold text-[15px] transition-colors ${
+              className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors ${
                 activeTab === 'board'
-                  ? 'bg-teal-light text-teal-dark'
-                  : 'text-muted hover:text-charcoal'
+                  ? 'bg-neutral-700 text-white'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
               Board
@@ -65,10 +65,10 @@ export function Navbar({
             {hasTeam && (
               <button
                 onClick={() => setActiveTab('my-team')}
-                className={`px-3.5 py-2 rounded-lg font-semibold text-[15px] transition-colors ${
+                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors ${
                   activeTab === 'my-team'
-                    ? 'bg-teal-light text-teal-dark'
-                    : 'text-muted hover:text-charcoal'
+                    ? 'bg-neutral-700 text-white'
+                    : 'text-neutral-400 hover:text-white'
                 }`}
               >
                 My team
@@ -77,10 +77,10 @@ export function Navbar({
 
             <button
               onClick={() => setActiveTab('suggestions')}
-              className={`px-3.5 py-2 rounded-lg font-semibold text-[15px] transition-colors ${
+              className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors ${
                 activeTab === 'suggestions'
-                  ? 'bg-teal-light text-teal-dark'
-                  : 'text-muted hover:text-charcoal'
+                  ? 'bg-neutral-700 text-white'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
               Suggestions
@@ -88,52 +88,52 @@ export function Navbar({
 
             <button
               onClick={() => setActiveTab('lab')}
-              className={`px-3.5 py-2 rounded-lg font-semibold text-[15px] transition-colors flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors flex items-center gap-1.5 ${
                 activeTab === 'lab'
-                  ? 'bg-teal-light text-teal-dark'
-                  : 'text-muted hover:text-charcoal'
+                  ? 'bg-neutral-700 text-white'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
               <span>Race test</span>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-lime/20 text-lime font-bold">
                 50 VUs
               </span>
             </button>
           </nav>
         </div>
 
-        {/* Right Section: Live Pulse, Shortcuts, User Profile */}
-        <div className="flex items-center gap-3 sm:gap-5">
-          {/* Live Indicator */}
-          <div className="flex items-center gap-2 text-sm font-semibold text-teal-dark select-none hidden sm:flex">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse inline-block"></span>
+        {/* Right section */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          {/* Live indicator */}
+          <div className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-lime select-none">
+            <span className="w-2 h-2 rounded-full bg-lime animate-pulse-soft inline-block" />
             <span>Live</span>
           </div>
 
-          {/* Keyboard help (?) */}
+          {/* Keyboard help */}
           <button
             onClick={onOpenHelp}
-            title="Keyboard shortcuts (?)"
-            className="w-8 h-8 rounded-full border border-cardBorder text-muted hover:text-charcoal flex items-center justify-center text-xs font-mono transition-colors"
+            title="Keyboard shortcuts"
+            className="w-8 h-8 rounded-lg border border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500 flex items-center justify-center text-xs font-mono transition-colors"
           >
             ?
           </button>
 
-          {/* User Logged-in State */}
+          {/* User state */}
           {currentUser ? (
-            <div className="flex items-center gap-3 pl-2 border-l border-borderLight">
+            <div className="flex items-center gap-3 pl-3 border-l border-neutral-700">
               <div
                 title={`${currentUser.name} (${currentUser.email})`}
-                className="w-9 h-9 rounded-full bg-pine text-[#F3F1EA] flex items-center justify-center font-bold text-sm shadow-sm shrink-0"
+                className="w-8 h-8 rounded-lg bg-lime text-charcoal flex items-center justify-center font-bold text-xs shrink-0"
               >
                 {getInitials(currentUser.name)}
               </div>
 
               <div className="hidden sm:flex flex-col text-left leading-tight">
-                <span className="font-semibold text-[13px] text-charcoal truncate max-w-[140px]">
+                <span className="font-semibold text-[13px] text-white truncate max-w-[120px]">
                   {currentUser.name}
                 </span>
-                <span className="text-[11px] text-muted truncate max-w-[140px]">
+                <span className="text-[11px] text-neutral-400 truncate max-w-[120px]">
                   {currentUser.email}
                 </span>
               </div>
@@ -141,20 +141,17 @@ export function Navbar({
               <button
                 onClick={onLogout}
                 title="Sign out"
-                className="h-8 px-2.5 border border-cardBorder rounded-lg text-xs font-semibold text-muted hover:text-danger hover:border-danger/40 transition-colors flex items-center gap-1.5"
+                className="h-8 px-2.5 border border-neutral-700 rounded-lg text-xs font-medium text-neutral-400 hover:text-white hover:border-neutral-500 transition-colors flex items-center gap-1.5"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Sign out</span>
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 pl-2 border-l border-borderLight">
-              <span className="hidden sm:inline text-xs text-muted font-medium bg-canvas px-2.5 py-1 rounded border border-cardBorder">
-                Guest Mode
-              </span>
+            <div className="flex items-center gap-2 pl-3 border-l border-neutral-700">
               <button
                 onClick={onOpenAuth}
-                className="h-9 px-4 rounded-lg bg-teal hover:bg-teal-hover text-white text-sm font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
+                className="h-9 px-4 rounded-lg bg-lime hover:bg-lime-dark text-charcoal text-sm font-semibold transition-colors flex items-center gap-1.5"
               >
                 <UserIcon className="w-4 h-4" />
                 <span>Sign in</span>

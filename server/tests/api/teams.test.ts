@@ -3,7 +3,7 @@ import { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/index.js';
 import { pool, query } from '../../src/db/pool.js';
 import { runMigrations } from '../../src/db/migrate.js';
-import { generateInviteCode } from '../../src/utils/crypto.js';
+import { generateInviteCode, hashPassword } from '../../src/utils/crypto.js';
 import { config } from '../../src/config.js';
 
 describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
@@ -15,11 +15,24 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
   let user2Token: string;
   let user3: any;
   let user3Token: string;
+  let bootstrapAdminUsername: string;
 
   beforeAll(async () => {
     await runMigrations();
-    app = await buildApp();
-    await app.ready();
+    const previousAdminUsername = process.env.ADMIN_USERNAME;
+    const previousAdminPassword = process.env.ADMIN_PASSWORD;
+    bootstrapAdminUsername = `testadmin${Date.now()}`;
+    process.env.ADMIN_USERNAME = bootstrapAdminUsername;
+    process.env.ADMIN_PASSWORD = 'TestAdminPassword123!';
+    try {
+      app = await buildApp();
+      await app.ready();
+    } finally {
+      if (previousAdminUsername === undefined) delete process.env.ADMIN_USERNAME;
+      else process.env.ADMIN_USERNAME = previousAdminUsername;
+      if (previousAdminPassword === undefined) delete process.env.ADMIN_PASSWORD;
+      else process.env.ADMIN_PASSWORD = previousAdminPassword;
+    }
 
     // Setup Hackathon with unique run slug
     const runId = Date.now();
@@ -89,6 +102,39 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
   });
 
   // 1. Auth tests
+  it('0. POST /api/auth/login: provisions and authenticates the configured admin username', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { username: bootstrapAdminUsername, password: 'TestAdminPassword123!' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).user.role).toBe('admin');
+  });
+
+  it('0a. POST /api/auth/login: backfills usernames for seeded demo accounts', async () => {
+    const email = 'user99999@demo.test';
+    await query(
+      'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3)',
+      [email, await hashPassword('Demo@12345'), 'Demo Judge']
+    );
+
+    try {
+      await runMigrations();
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { username: 'user99999', password: 'Demo@12345' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body).user.email).toBe(email);
+    } finally {
+      await query('DELETE FROM users WHERE email = $1', [email]);
+    }
+  });
+
   it('1. POST /api/auth/register: rejects duplicate email with 409', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -109,6 +155,20 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
       url: '/api/auth/login',
       payload: { email: user1.email, password: 'Password123!' },
     });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toHaveProperty('token');
+  });
+
+  it('2a. POST /api/auth/login: authenticates with a username', async () => {
+    const username = `api_user_${Date.now()}`;
+    await query('UPDATE users SET username = $1 WHERE id = $2', [username, user1.id]);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { username, password: 'Password123!' },
+    });
+
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body)).toHaveProperty('token');
   });
