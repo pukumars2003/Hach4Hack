@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Play, CheckCircle2, AlertCircle, RefreshCw, Zap, ShieldCheck } from 'lucide-react';
-import { apiRequest } from '../api/client.js';
+import { apiRequest, API_BASE } from '../api/client.js';
 
 interface RaceResultItem {
   id: number;
@@ -92,7 +92,7 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
       const racePromises = racers.map(async (racer, idx) => {
         const start = performance.now();
         try {
-          const res = await fetch('/api/teams/join-by-code', {
+          const res = await fetch(`${API_BASE}/teams/join-by-code`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

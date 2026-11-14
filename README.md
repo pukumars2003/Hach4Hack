@@ -47,6 +47,36 @@ docker compose up --build
 
 ---
 
+## ☁️ Deploy (Vercel client + Render API)
+
+Vercel hosts static frontends and short-lived serverless functions. It **cannot** run the Fastify API, a
+Dockerfile, or the PostgreSQL `LISTEN/NOTIFY` + SSE loop this app depends on. The supported split is:
+
+```
+Browser ──> Vercel (React/Vite static) ──> Render (Fastify API + SSE + Postgres, Docker)
+```
+
+1. **Push this repo to GitHub.**
+2. **Render (API + Postgres):** New → Blueprint → pick the repo. It reads `render.yaml`, builds
+   `server/Dockerfile`, provisions `raceproof-db`, and runs migrations on boot. Set `CORS_ORIGIN` to your
+   Vercel domain (or `*` while testing). The service URL looks like `https://raceproof-api.onrender.com`.
+3. **Vercel (client):** Import the same repo, set **Root Directory = `client`**, Framework **Vite**,
+   Build `npm run build`, Output `dist`. Add environment variable
+   `VITE_API_BASE_URL=https://raceproof-api.onrender.com` (no trailing slash, no `/api`).
+   `client/vercel.json` already rewrites unknown routes to `index.html` for the SPA.
+4. **Optional GitHub Actions deploy:** add repo secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID`,
+   `VERCEL_PROJECT_ID` and repo variable `VITE_API_BASE_URL`; `.github/workflows/deploy-vercel.yml` builds
+   and deploys the client on every push. Render also auto-deploys the API from `render.yaml`.
+
+The client sends `Authorization: Bearer` to the API origin and opens SSE at
+`{VITE_API_BASE_URL}/api/realtime/stream`; both work cross-origin with `CORS_ORIGIN=*`. The API serves JSON
+only in this split (the client is on Vercel), which is why `server/Dockerfile` builds the server alone.
+
+> The monolith path (Fastify serving the built client) still works for local Docker Compose and for a
+> single-service Render/VPS deploy; the split above is only needed when the client is on Vercel.
+
+---
+
 ## 🧪 Concurrency & Resiliency Test Suite
 
 ### 1. Automated 250-Client Simultaneous Race Test
@@ -56,7 +86,7 @@ npm run test:race
 ```
 *Asserts that exactly 1 request returns `200 OK`, 249 return `409 Conflict`, and database count remains strictly bounded.*
 
-### 2. Full Invariants & API Suite (27 Tests)
+### 2. Full Invariants & API Suite (33 Tests)
 ```bash
 npm test
 ```

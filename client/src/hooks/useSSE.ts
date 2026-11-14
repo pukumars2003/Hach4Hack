@@ -12,7 +12,8 @@ export function useSSE(options: {
     if (!hackathonId) return;
 
     const token = getAuthToken() || '';
-    const url = new URL('/api/realtime/stream', window.location.origin);
+    const origin = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+    const url = new URL('/api/realtime/stream', origin);
     url.searchParams.append('hackathonId', hackathonId);
     if (teamId) url.searchParams.append('teamId', teamId);
     if (token) url.searchParams.append('token', token);

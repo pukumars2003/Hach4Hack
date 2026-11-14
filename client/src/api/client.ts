@@ -1,6 +1,10 @@
 import { User, Team, TeamDetail, Suggestion } from '../types.js';
 
-const API_BASE = '/api';
+// Empty in local/same-origin deployments (relative `/api`). Set
+// VITE_API_BASE_URL to the API origin when the client is deployed separately
+// (for example a Vercel static site calling a Render API).
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+export const API_BASE = `${API_ORIGIN}/api`;
 
 export function getAuthToken(): string | null {
   return localStorage.getItem('token');

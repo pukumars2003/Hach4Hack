@@ -1,11 +1,12 @@
 services:
-  # Fastify Monolith API + Static Client Serving
+  # Fastify API (Docker). The React client is deployed to Vercel separately.
+  # Set CORS_ORIGIN to the Vercel origin (or "*" while testing).
   - type: web
-    name: raceproof-team-formation
-    env: node
+    name: raceproof-api
+    env: docker
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm run start --workspace=server
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
     envVars:
       - key: NODE_ENV
         value: production
@@ -19,10 +20,11 @@ services:
         generateValue: true
       - key: CORS_ORIGIN
         value: "*"
+      - key: PG_POOL_MAX
+        value: "20"
 
 databases:
   - name: raceproof-db
     plan: free
     databaseName: team_formation
     user: postgres
-
