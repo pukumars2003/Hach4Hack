@@ -87,8 +87,8 @@ export const options = targetIterations
       scenarios: {
         board_requirement: {
           executor: 'constant-vus',
-          vus: 100,
-          duration: '30s',
+          vus: parseInt(__ENV.VUS || '100', 10),
+          duration: __ENV.DURATION || '15s',
           exec: 'boardRead',
         },
       },
