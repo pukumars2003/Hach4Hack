@@ -41,8 +41,14 @@ export async function buildApp() {
     secret: config.jwtSecret,
   });
 
-  // 3. High-Throughput Rate Limiting (configurable for extreme 100k+ load tests)
-  const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX || '500000', 10);
+  // 3. IP-level rate limiting; authenticated sensitive routes add user-level limits.
+  const rateLimitMax = Number.parseInt(
+    process.env.RATE_LIMIT_MAX || String(config.rateLimits.maxIpPerMinute),
+    10
+  );
+  if (!Number.isSafeInteger(rateLimitMax) || rateLimitMax < 1) {
+    throw new Error('RATE_LIMIT_MAX must be a positive integer');
+  }
   await app.register(rateLimit, {
     max: rateLimitMax,
     timeWindow: '1 minute',

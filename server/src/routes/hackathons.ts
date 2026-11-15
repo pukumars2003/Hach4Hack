@@ -1,5 +1,8 @@
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { query } from '../db/pool.js';
+import { z } from 'zod';
+
+const hackathonIdParamsSchema = z.object({ id: z.string().uuid() });
 
 export const hackathonRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   // GET /api/hackathons
@@ -26,7 +29,11 @@ export const hackathonRoutes: FastifyPluginAsync = async (app: FastifyInstance) 
 
   // GET /api/hackathons/:id
   app.get('/:id', async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const params = hackathonIdParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({ code: 'validation_error', errors: params.error.errors });
+    }
+    const { id } = params.data;
     const result = await query(
       `SELECT id, name, slug, min_team_size, max_team_size, is_active, created_at 
        FROM hackathons 

@@ -27,7 +27,6 @@ export const config = {
   },
   rateLimits: {
     maxRedeemPerMinute: 5,
-    maxRedeemPer15Min: 20,
-    maxIpPerMinute: 20,
+    maxIpPerMinute: 300,
   },
 };

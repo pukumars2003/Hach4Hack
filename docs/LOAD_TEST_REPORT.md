@@ -287,7 +287,7 @@ it, and be handed the pre-write board even though that result is never cached. T
 keyed by `query@version`; a post-write caller starts a fresh query instead of joining the old one. The old
 promise still resolves, but its result is discarded by the version check and cannot repopulate the cache.
 
-The latest local automated suite has 39 tests across five files. The benchmark results in this report are
+The latest local automated suite has 48 tests across six files. The benchmark results in this report are
 historical measurements; this test-count update does not imply the load runs were repeated:
 
 - **`server/tests/cache/singleFlight.test.ts`** — unit tests: concurrent callers at the same version still

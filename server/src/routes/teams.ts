@@ -2,34 +2,51 @@ import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { query, withTransaction } from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/admin.js';
 import { withIdempotency, IdempotencyError } from '../middleware/idempotency.js';
 import { generateInviteCode, hashInviteCode } from '../utils/crypto.js';
 import { boardCache } from '../utils/singleFlight.js';
 import { boardQuerySchema, boardCacheKey, fetchBoard, BOARD_RESPONSE_HEADERS } from '../services/board.js';
+import { cancelPendingJoinRequests } from '../services/joinRequests.js';
 import { config } from '../config.js';
 
 const createTeamSchema = z.object({
   hackathonId: z.string().uuid(),
   name: z.string().min(2).max(100),
   description: z.string().max(1000).default(''),
-  neededSkills: z.array(z.string().max(50)).default([]),
-  maxMembers: z.number().int().min(2).max(10).default(4),
+  neededSkills: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
+  maxMembers: z.number().int().min(2).max(10).optional(),
 });
 
 const updateTeamSchema = z.object({
   name: z.string().min(2).max(100).optional(),
   description: z.string().max(1000).optional(),
-  neededSkills: z.array(z.string().max(50)).optional(),
+  neededSkills: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
 });
 
 const joinByCodeSchema = z.object({
   code: z.string().min(8).max(30),
 });
 
+const inviteCreateSchema = z.object({
+  expiresInHours: z.number().int().min(1).max(168).default(24),
+});
+
+const removeMemberSchema = z.object({
+  targetUserId: z.string().uuid(),
+});
+
+const teamIdParamsSchema = z.object({ id: z.string().uuid() });
+const inviteParamsSchema = z.object({ id: z.string().uuid(), inviteId: z.string().uuid() });
+
 export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   // POST /api/teams/lab/batch-racers (Fast racer batch setup for Concurrency Lab)
-  app.post('/lab/batch-racers', async (req, reply) => {
-    const { count = 50 } = req.body as { count?: number };
+  app.post('/lab/batch-racers', { preHandler: [requireAdmin] }, async (req, reply) => {
+    const body = z.object({ count: z.number().int().min(1).max(100).default(50) }).safeParse(req.body ?? {});
+    if (!body.success) {
+      return reply.status(400).send({ code: 'validation_error', errors: body.error.errors });
+    }
+    const { count = 50 } = body.data;
     const racerCount = Math.min(Math.max(1, count), 100);
     const ts = Date.now();
 
@@ -112,7 +129,11 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
   // GET /api/teams/:id (Detailed View)
   app.get('/:id', async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const params = teamIdParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({ code: 'validation_error', errors: params.error.errors });
+    }
+    const { id } = params.data;
 
     const teamResult = await query(
       `SELECT t.id, t.hackathon_id, t.name, t.description, t.needed_skills,
@@ -206,13 +227,37 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       return reply.status(400).send({ code: 'validation_error', errors: parse.error.errors });
     }
 
-    const { hackathonId, name, description, neededSkills, maxMembers } = parse.data;
+    const { hackathonId, name, description, neededSkills } = parse.data;
+    const requestedMaxMembers = parse.data.maxMembers;
     const userId = (req.user as any).id;
     const idempotencyKey = req.headers['idempotency-key'] as string | undefined;
 
     try {
       const outcome = await withTransaction(async (client) => {
         return withIdempotency(client, userId, idempotencyKey, '/api/teams', req.body, async () => {
+          const hackathonResult = await client.query(
+            `SELECT min_team_size, max_team_size, is_active
+             FROM hackathons
+             WHERE id = $1
+             FOR SHARE`,
+            [hackathonId]
+          );
+          if (hackathonResult.rowCount === 0) {
+            throw new IdempotencyError(404, 'hackathon_not_found', 'Hackathon does not exist.');
+          }
+          const hackathon = hackathonResult.rows[0];
+          if (!hackathon.is_active) {
+            throw new IdempotencyError(409, 'hackathon_inactive', 'Teams cannot be created for an inactive hackathon.');
+          }
+          const maxMembers = requestedMaxMembers ?? Math.min(hackathon.max_team_size, 10);
+          if (maxMembers < hackathon.min_team_size || maxMembers > hackathon.max_team_size) {
+            throw new IdempotencyError(
+              400,
+              'team_size_out_of_bounds',
+              `Team capacity must be between ${hackathon.min_team_size} and ${hackathon.max_team_size}.`
+            );
+          }
+
           // 1. Check if user already on a team in this hackathon
           const memberCheck = await client.query(
             `SELECT team_id FROM team_members WHERE hackathon_id = $1 AND user_id = $2`,
@@ -247,13 +292,7 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
             [newTeam.id, userId, hackathonId]
           );
 
-          // 5. Cancel any pending join requests by this user
-          await client.query(
-            `UPDATE join_requests 
-             SET status = 'cancelled', updated_at = clock_timestamp() 
-             WHERE user_id = $1 AND status = 'pending'`,
-            [userId]
-          );
+          await cancelPendingJoinRequests(client, userId, userId, 'created_team');
 
           // 6. Append audit log
           await client.query(
@@ -290,7 +329,18 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   });
 
   // POST /api/teams/join-by-code (THE RACE-PROOF LAST SEAT ENFORCER)
-  app.post('/join-by-code', { preHandler: [requireAuth] }, async (req, reply) => {
+  app.post('/join-by-code', {
+    config: {
+      rateLimit: {
+        max: config.rateLimits.maxRedeemPerMinute,
+        timeWindow: '1 minute',
+        groupId: 'invite-redeem-user-minute',
+        hook: 'preHandler',
+        keyGenerator: (req) => String((req.user as { id?: string } | undefined)?.id || req.ip),
+      },
+    },
+    preHandler: [requireAuth],
+  }, async (req, reply) => {
     const parse = joinByCodeSchema.safeParse(req.body);
     if (!parse.success) {
       return reply.status(400).send({ code: 'validation_error', errors: parse.error.errors });
@@ -352,7 +402,7 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
           );
 
           if (updateResult.rowCount === 0) {
-            // Team is full! Exactly one gets in; all 249 others land here!
+            // Team is full; all requests that do not claim a seat land here.
             throw new IdempotencyError(409, 'team_full', 'This team has already reached its maximum member capacity.');
           }
 
@@ -372,13 +422,7 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
             throw insertErr;
           }
 
-          // 5. Cancel any pending join requests by this user
-          await client.query(
-            `UPDATE join_requests 
-             SET status = 'cancelled', updated_at = clock_timestamp()
-             WHERE user_id = $1 AND status = 'pending'`,
-            [userId]
-          );
+          await cancelPendingJoinRequests(client, userId, userId, 'joined_by_invite');
 
           // 6. Write immutable audit log
           await client.query(
@@ -421,7 +465,11 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
   // POST /api/teams/:id/leave (Leader Promotion & Cascading Deletion)
   app.post('/:id/leave', { preHandler: [requireAuth] }, async (req, reply) => {
-    const { id: teamId } = req.params as { id: string };
+    const params = teamIdParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({ code: 'validation_error', errors: params.error.errors });
+    }
+    const teamId = params.data.id;
     const userId = (req.user as any).id;
     const idempotencyKey = req.headers['idempotency-key'] as string | undefined;
 
@@ -558,13 +606,17 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
   // POST /api/teams/:id/remove-member (Leader Only)
   app.post('/:id/remove-member', { preHandler: [requireAuth] }, async (req, reply) => {
-    const { id: teamId } = req.params as { id: string };
-    const { targetUserId } = req.body as { targetUserId: string };
-    const callerId = (req.user as any).id;
-
-    if (!targetUserId) {
-      return reply.status(400).send({ code: 'validation_error', message: 'targetUserId is required' });
+    const params = teamIdParamsSchema.safeParse(req.params);
+    const body = removeMemberSchema.safeParse(req.body);
+    if (!params.success || !body.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        errors: [...(params.success ? [] : params.error.errors), ...(body.success ? [] : body.error.errors)],
+      });
     }
+    const teamId = params.data.id;
+    const { targetUserId } = body.data;
+    const callerId = (req.user as any).id;
 
     try {
       const outcome = await withTransaction(async (client) => {
@@ -627,11 +679,17 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
   // POST /api/teams/:id/invites (Leader Creates Invite Code)
   app.post('/:id/invites', { preHandler: [requireAuth] }, async (req, reply) => {
-    const { id: teamId } = req.params as { id: string };
+    const params = teamIdParamsSchema.safeParse(req.params);
+    const body = inviteCreateSchema.safeParse(req.body ?? {});
+    if (!params.success || !body.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        errors: [...(params.success ? [] : params.error.errors), ...(body.success ? [] : body.error.errors)],
+      });
+    }
+    const teamId = params.data.id;
     const callerId = (req.user as any).id;
-    const { expiresInHours = 24 } = req.body as { expiresInHours?: number };
-
-    const hours = Math.min(Math.max(1, expiresInHours), 168); // 1h to 7d
+    const hours = body.data.expiresInHours;
 
     try {
       const outcome = await withTransaction(async (client) => {
@@ -680,38 +738,64 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
   // DELETE /api/teams/:id/invites/:inviteId (Leader Revokes Invite)
   app.delete('/:id/invites/:inviteId', { preHandler: [requireAuth] }, async (req, reply) => {
-    const { id: teamId, inviteId } = req.params as { id: string; inviteId: string };
+    const params = inviteParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({ code: 'validation_error', errors: params.error.errors });
+    }
+    const { id: teamId, inviteId } = params.data;
     const callerId = (req.user as any).id;
 
-    const teamRes = await query(`SELECT leader_id, hackathon_id FROM teams WHERE id = $1`, [teamId]);
-    if (teamRes.rowCount === 0) {
-      return reply.status(404).send({ code: 'team_not_found', message: 'Team not found' });
+    try {
+      await withTransaction(async (client) => {
+        const teamRes = await client.query(
+          `SELECT leader_id, hackathon_id FROM teams WHERE id = $1 FOR UPDATE`,
+          [teamId]
+        );
+        if (teamRes.rowCount === 0) {
+          throw new IdempotencyError(404, 'team_not_found', 'Team not found.');
+        }
+        if (teamRes.rows[0].leader_id !== callerId) {
+          throw new IdempotencyError(403, 'not_leader', 'Only the team leader can revoke invite codes.');
+        }
+
+        const revoke = await client.query(
+          `UPDATE invite_codes
+           SET revoked_at = clock_timestamp()
+           WHERE id = $1 AND team_id = $2 AND revoked_at IS NULL
+           RETURNING id`,
+          [inviteId, teamId]
+        );
+        if (revoke.rowCount === 0) {
+          throw new IdempotencyError(404, 'invite_not_found', 'Invite not found.');
+        }
+
+        await client.query(
+          `INSERT INTO audit_logs (hackathon_id, team_id, actor_id, action, details)
+           VALUES ($1, $2, $3, 'invite_revoked', $4)`,
+          [teamRes.rows[0].hackathon_id, teamId, callerId, JSON.stringify({ inviteId })]
+        );
+        await client.query(
+          `SELECT pg_notify('team_events', $1)`,
+          [JSON.stringify({ type: 'invite_revoked', teamId, hackathonId: teamRes.rows[0].hackathon_id })]
+        );
+      });
+
+      return reply.send({ success: true, message: 'Invite code revoked.' });
+    } catch (err) {
+      if (err instanceof IdempotencyError) {
+        return reply.status(err.statusCode).send({ code: err.code, message: err.message });
+      }
+      throw err;
     }
-    if (teamRes.rows[0].leader_id !== callerId) {
-      return reply.status(403).send({ code: 'not_leader', message: 'Only the team leader can revoke invite codes.' });
-    }
-
-    const revoke = await query(
-      `UPDATE invite_codes SET revoked_at = clock_timestamp() WHERE id = $1 AND team_id = $2 RETURNING id`,
-      [inviteId, teamId]
-    );
-
-    if (revoke.rowCount === 0) {
-      return reply.status(404).send({ code: 'invite_not_found', message: 'Invite not found.' });
-    }
-
-    await query(
-      `INSERT INTO audit_logs (hackathon_id, team_id, actor_id, action, details)
-       VALUES ($1, $2, $3, 'invite_revoked', $4)`,
-      [teamRes.rows[0].hackathon_id, teamId, callerId, JSON.stringify({ inviteId })]
-    );
-
-    return reply.send({ success: true, message: 'Invite code revoked.' });
   });
 
   // PATCH /api/teams/:id (Leader Edits Profile)
   app.patch('/:id', { preHandler: [requireAuth] }, async (req, reply) => {
-    const { id: teamId } = req.params as { id: string };
+    const params = teamIdParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({ code: 'validation_error', errors: params.error.errors });
+    }
+    const teamId = params.data.id;
     const callerId = (req.user as any).id;
     const parse = updateTeamSchema.safeParse(req.body);
 
@@ -723,7 +807,13 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
     try {
       const outcome = await withTransaction(async (client) => {
-        const teamRes = await client.query(`SELECT leader_id, hackathon_id, name FROM teams WHERE id = $1 FOR UPDATE`, [teamId]);
+        const teamRes = await client.query(
+          `SELECT leader_id, hackathon_id, name, description, needed_skills
+           FROM teams
+           WHERE id = $1
+           FOR UPDATE`,
+          [teamId]
+        );
         if (teamRes.rowCount === 0) {
           throw new IdempotencyError(404, 'team_not_found', 'Team not found');
         }
@@ -752,6 +842,28 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
         values.push(teamId);
         const sql = `UPDATE teams SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`;
         const result = await client.query(sql, values);
+
+        await client.query(
+          `INSERT INTO audit_logs (hackathon_id, team_id, actor_id, action, details)
+           VALUES ($1, $2, $3, 'team_updated', $4)`,
+          [
+            teamRes.rows[0].hackathon_id,
+            teamId,
+            callerId,
+            JSON.stringify({
+              before: {
+                name: teamRes.rows[0].name,
+                description: teamRes.rows[0].description,
+                neededSkills: teamRes.rows[0].needed_skills,
+              },
+              after: {
+                name: result.rows[0].name,
+                description: result.rows[0].description,
+                neededSkills: result.rows[0].needed_skills,
+              },
+            }),
+          ]
+        );
 
         await client.query(
           `SELECT pg_notify('team_events', $1)`,

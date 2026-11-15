@@ -5,6 +5,7 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -44,13 +45,13 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/team_formation
         run: npm run db:migrate --workspace=server
 
-      - name: Run Full API Test Suite (25+ Invariants)
+      - name: Run Full API Test Suite
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/team_formation
           NODE_ENV: test
         run: npm run test --workspace=server
 
-      - name: Run 250-Client Simultaneous Last-Seat Race Test
+      - name: Run 50-Client Simultaneous Last-Seat Race Test
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/team_formation
           NODE_ENV: test
@@ -61,4 +62,101 @@ jobs:
 
       - name: Build Production Server
         run: npm run build --workspace=server
+
+  board-load-test:
+    name: 100-VU k6 Board Performance Test
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: team_formation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Setup Grafana k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run Schema Migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/team_formation
+        run: npm run db:migrate --workspace=server
+
+      - name: Seed 10,000 users and 2,000 teams
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/team_formation
+          SEED_USERS: 10000
+          SEED_TEAMS: 2000
+        run: npm run seed --workspace=server
+
+      - name: Start API and wait for health
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/team_formation
+          JWT_SECRET: ci-only-secret-for-local-load-test-0123456789
+          NODE_ENV: test
+          PORT: 3000
+          DISABLE_RATE_LIMIT: 'true'
+        run: |
+          mkdir -p artifacts
+          nohup npm run dev --workspace=server > artifacts/server.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/health > /dev/null; then
+              echo "API health check passed."
+              exit 0
+            fi
+            sleep 1
+          done
+          cat artifacts/server.log
+          echo "API did not become healthy within 60 seconds."
+          exit 1
+
+      - name: Run 100-VU realistic-mix board test
+        env:
+          BASE_URL: http://127.0.0.1:3000
+          VUS: 100
+          DURATION: 15s
+          MIX: 'true'
+          WARMUP: 0
+          THINK_TIME: 0.05
+          REPORT_PREFIX: artifacts/k6-board-100vu
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          k6 run scripts/load-test.js 2>&1 | tee artifacts/k6-board-100vu-terminal.txt
+
+      - name: Upload k6 reports and server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-board-100vu-${{ github.run_number }}
+          path: |
+            artifacts/k6-board-100vu-terminal.txt
+            artifacts/k6-board-100vu.html
+            artifacts/k6-board-100vu.json
+            artifacts/server.log
+          if-no-files-found: warn
+          retention-days: 30
 

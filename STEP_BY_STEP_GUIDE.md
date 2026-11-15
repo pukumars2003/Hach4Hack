@@ -139,10 +139,12 @@ npm run test:race
 **Expected Output:**
 ```text
 [Race Test] Firing 50 simultaneous join requests for the last seat...
-[Race Test] All 50 requests completed.
-[Race Test Result] 200 OK: 1, 409 Conflict: 49, 503 Retry: 0, 5xx Errors: 0
+[Race Test] All 50 requests completed in <duration>ms.
+[Race Test Result] 200 OK: 1, 409 Conflict: 49, 503 Retry: 0, retried requests: 0, 5xx Errors: 0
 Passed: 50 distinct participants race for 1 seat -> Exactly 1 winner, 49 conflicts, zero over-capacity
 ```
+If the connection pool briefly returns `503`, the test retries those requests with their original
+idempotency keys. The final state must still be one success, 49 conflicts, and a 4/4 roster.
 
 ### Why It Is Guaranteed Race-Proof:
 We use an atomic predicate update in PostgreSQL `READ COMMITTED`:
@@ -191,12 +193,23 @@ Run the comprehensive Vitest integration and concurrency test suite:
 npm test
 ```
 
-The latest local run passed **39 tests across 5 test files**. Coverage includes authentication, admin access,
-team and request rules, invite codes, audit behavior, board-cache invalidation, and concurrency.
+The latest local run passed **48 tests across 6 test files**. Coverage includes authentication, admin access,
+team and request rules, invite-code rate limits, audit behavior, idempotency retries, board-cache invalidation,
+and concurrency.
 
 ---
 
-## 9. Running the Chaos / SIGKILL Resilience Test
+## 9. Running GitHub Actions and Downloading the k6 Proof
+
+The workflow runs automatically for pushes and pull requests targeting `main` or `master`. To run it manually,
+open **Actions → CI - Concurrency & Invariants Suite → Run workflow** on GitHub. Wait for the `test` and
+`board-load-test` jobs to finish, then download the `k6-board-100vu-*` artifact from the run summary. It
+contains terminal output, the HTML dashboard, raw JSON metrics, and the API log. Current local changes do not
+have a hosted Actions result until pushed or manually dispatched.
+
+---
+
+## 10. Running the Chaos / SIGKILL Resilience Test
 
 To prove that the database remains 100% consistent even during sudden server termination mid-transaction:
 ```powershell

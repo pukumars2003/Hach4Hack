@@ -2,11 +2,18 @@ import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { query } from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { scoreCandidate, TeamProfile, CandidateUser } from '../utils/scoring.js';
+import { z } from 'zod';
+
+const teamIdParamsSchema = z.object({ id: z.string().uuid() });
 
 export const suggestionRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   // GET /api/teams/:id/suggestions
   app.get('/:id/suggestions', { preHandler: [requireAuth] }, async (req, reply) => {
-    const { id: teamId } = req.params as { id: string };
+    const params = teamIdParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({ code: 'validation_error', errors: params.error.errors });
+    }
+    const teamId = params.data.id;
     const callerId = (req.user as any).id;
 
     // 1. Fetch team details

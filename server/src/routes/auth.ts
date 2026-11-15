@@ -9,16 +9,16 @@ const registerSchema = z.object({
   password: z.string().min(6).max(100),
   name: z.string().min(1).max(100),
   avatarUrl: z.string().url().optional(),
-  skills: z.array(z.string()).default([]),
-  interests: z.array(z.string()).default([]),
+  skills: z.array(z.string().trim().min(1).max(50)).max(30).default([]),
+  interests: z.array(z.string().trim().min(1).max(50)).max(30).default([]),
   timezoneOffsetMinutes: z.number().int().min(-720).max(720).default(0),
   discoveryEnabled: z.boolean().default(true),
 });
 
 const loginSchema = z.object({
-  email: z.string().trim().min(1).optional(),
-  username: z.string().trim().min(1).optional(),
-  password: z.string(),
+  email: z.string().trim().min(1).max(255).optional(),
+  username: z.string().trim().min(1).max(32).optional(),
+  password: z.string().min(1).max(100),
 }).refine((value) => value.email || value.username, {
   message: 'Username or email is required',
 });

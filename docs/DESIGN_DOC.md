@@ -16,6 +16,9 @@ The data model is engineered so that correctness is guaranteed at the database e
   - `UNIQUE (hackathon_id, user_id)`: Guarantees that no user can belong to two teams in the same hackathon, even across concurrent requests.
 - **`join_requests`**: Filtered partial index `UNIQUE (team_id, user_id) WHERE status = 'pending'` prevents duplicate pending requests.
 - **`invite_codes`**: 60-bit Crockford Base32 (`ABCD-EFGH-JKMN`). Only `SHA-256(code)` is stored with `expires_at` evaluated against database `clock_timestamp()`.
+- The API's default IP limit is 300 requests per minute; invite redemption uses a dedicated stricter limit of
+  five attempts per authenticated participant per minute. CI's loopback-only bypass is confined to the isolated
+  load-test service and is not a production setting.
 - **`audit_logs`**: Append-only log with a PostgreSQL trigger `BEFORE UPDATE OR DELETE` raising an exception. Deliberately has no foreign key to `teams` so history survives team deletion.
 - **`idempotency_keys`**: Primary key `(user_id, key, endpoint)` written in the **same transaction** as state mutations.
 

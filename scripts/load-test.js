@@ -507,6 +507,8 @@ function generateConsoleSummary(data) {
     ? 'COLD (server started with BOARD_CACHE_DISABLED=1 — no cache layer ran)'
     : MODE === 'cold'
       ? 'COLD (unique URL per iteration — HTTP cache bypassed)'
+      : MODE === 'mix'
+        ? `MIX (${100 - MIX_COLD_PCT}% hot URL + ${MIX_COLD_PCT}% varied URLs)`
       : MODE === 'compare'
         ? 'COMPARE (cold scenario, then warm scenario)'
         : 'WARM (hot URL — served from the in-process response cache)';
@@ -879,7 +881,7 @@ function generateHtmlReport(data) {
         between requests, so ${s.maxVus} VUs can issue at most
         ~${fmtInt(clientCeiling(headline?.med, s.maxVus))} req/s at the measured p50. The reported req/s is not a
         server capacity measurement.<br>
-        <strong>Cache disclosure:</strong> ${s.cacheDisabled ? 'the server was started with BOARD_CACHE_DISABLED=1, so every request ran the full Fastify + PostgreSQL path (0% cache)' : MODE === 'cold' ? 'this run bypassed the response cache with unique URLs — every request ran the real keyset query' : MODE === 'warm' ? 'this run re-requests one hot URL — most requests were answered from the in-process cache' : 'the cold scenario bypassed the response cache; the warm scenario was served from it'} (HIT ${fmtInt(s.hits)} / MISS ${fmtInt(s.misses)} / STALE ${fmtInt(s.stales)}${s.bypass ? ` / BYPASS ${fmtInt(s.bypass)}` : ''}).<br>
+        <strong>Cache disclosure:</strong> ${s.cacheDisabled ? 'the server was started with BOARD_CACHE_DISABLED=1, so every request ran the full Fastify + PostgreSQL path (0% cache)' : MODE === 'cold' ? 'this run bypassed the response cache with unique URLs — every request ran the real keyset query' : MODE === 'mix' ? `${100 - MIX_COLD_PCT}% of requests use the hot URL and ${MIX_COLD_PCT}% vary filters and cursors to exercise cache misses and PostgreSQL` : MODE === 'warm' ? 'this run re-requests one hot URL — most requests were answered from the in-process cache' : 'the cold scenario bypassed the response cache; the warm scenario was served from it'} (HIT ${fmtInt(s.hits)} / MISS ${fmtInt(s.misses)} / STALE ${fmtInt(s.stales)}${s.bypass ? ` / BYPASS ${fmtInt(s.bypass)}` : ''}).<br>
         <strong>Warm-up:</strong> ${fmtInt(WARMUP_TOTAL)} requests before the measurement window, excluded from all latency percentiles.<br>
         <strong>Phase breakdown (p50 / p95):</strong> waiting ${fmtMs(s.phases.waiting?.med)} / ${fmtMs(s.phases.waiting?.p95)},
         blocked ${fmtMs(s.phases.blocked?.med)} / ${fmtMs(s.phases.blocked?.p95)},

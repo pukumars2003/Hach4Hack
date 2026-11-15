@@ -9,6 +9,7 @@ export interface TeamEventPayload {
   hackathonId?: string;
   userId?: string;
   actorId?: string;
+  targetUserId?: string;
 }
 
 interface TeamSubscriber {
@@ -155,6 +156,13 @@ class RealtimeHub {
       for (const sub of subscribers) {
         try {
           sub.reply.raw.write(sseMessage);
+          if (
+            payload.type === 'team_deleted' ||
+            (payload.type === 'member_removed' && payload.targetUserId === sub.userId) ||
+            (payload.type === 'member_left' && payload.userId === sub.userId)
+          ) {
+            sub.reply.raw.end();
+          }
         } catch {}
       }
     }

@@ -84,7 +84,7 @@ describe('Race-Proof Concurrency Tests: 50 to 250 Simultaneous Joins for 1 Seat'
     );
 
     // 3. Create 50 distinct racers with JWT tokens
-    const racerTokens: string[] = [];
+    const racerRequests: { token: string; idempotencyKey: string }[] = [];
     const racerIds: string[] = [];
 
     for (let i = 0; i < CONCURRENT_RACERS; i++) {
@@ -94,21 +94,24 @@ describe('Race-Proof Concurrency Tests: 50 to 250 Simultaneous Joins for 1 Seat'
       );
       const rId = racerRes.rows[0].id;
       racerIds.push(rId);
-      racerTokens.push(app.jwt.sign({ id: rId, email: `racer_${i}@test.com`, name: `Racer ${i}` }));
+      racerRequests.push({
+        token: app.jwt.sign({ id: rId, email: `racer_${i}@test.com`, name: `Racer ${i}` }),
+        idempotencyKey: `race-test-${testRunId}-${rId}`,
+      });
     }
 
     // 4. Fire all 50 requests at the EXACT same instant using Promise.all
     console.log(`[Race Test] Firing ${CONCURRENT_RACERS} simultaneous join requests for the last seat...`);
     const startTime = Date.now();
 
-    const responses = await Promise.all(
-      racerTokens.map((token) =>
+    let responses = await Promise.all(
+      racerRequests.map(({ token, idempotencyKey }) =>
         app.inject({
           method: 'POST',
           url: '/api/teams/join-by-code',
           headers: {
             authorization: `Bearer ${token}`,
-            'idempotency-key': `race-test-${Date.now()}-${token.slice(-10)}`,
+            'idempotency-key': idempotencyKey,
           },
           payload: { code: rawInviteCode },
         })
@@ -118,18 +121,45 @@ describe('Race-Proof Concurrency Tests: 50 to 250 Simultaneous Joins for 1 Seat'
     const elapsed = Date.now() - startTime;
     console.log(`[Race Test] All ${CONCURRENT_RACERS} requests completed in ${elapsed}ms.`);
 
+    let retried = 0;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const retryIndexes = responses.flatMap((response, index) =>
+        response.statusCode === 503 ? [index] : []
+      );
+      if (retryIndexes.length === 0) break;
+
+      retried += retryIndexes.length;
+      const retryResponses = await Promise.all(
+        retryIndexes.map((index) =>
+          app.inject({
+            method: 'POST',
+            url: '/api/teams/join-by-code',
+            headers: {
+              authorization: `Bearer ${racerRequests[index].token}`,
+              'idempotency-key': racerRequests[index].idempotencyKey,
+            },
+            payload: { code: rawInviteCode },
+          })
+        )
+      );
+      retryResponses.forEach((response, retryIndex) => {
+        responses[retryIndexes[retryIndex]] = response;
+      });
+    }
+
     // 5. Evaluate HTTP responses
     const successfulJoins = responses.filter((r) => r.statusCode === 200);
     const conflicts = responses.filter((r) => r.statusCode === 409);
     const retryable = responses.filter((r) => r.statusCode === 503);
     const serverErrors = responses.filter((r) => r.statusCode >= 500 && r.statusCode !== 503);
 
-    console.log(`[Race Test Result] 200 OK: ${successfulJoins.length}, 409 Conflict: ${conflicts.length}, 503 Retry: ${retryable.length}, 5xx Errors: ${serverErrors.length}`);
+    console.log(`[Race Test Result] 200 OK: ${successfulJoins.length}, 409 Conflict: ${conflicts.length}, 503 Retry: ${retryable.length}, retried requests: ${retried}, 5xx Errors: ${serverErrors.length}`);
 
     // CRITICAL INVARIANT: Exactly 1 winner gets the last seat!
     expect(successfulJoins.length).toBe(1);
-    // All other racers must be rejected (409 or 503 — never 2xx)
-    expect(conflicts.length + retryable.length).toBe(CONCURRENT_RACERS - 1);
+    // Transient capacity responses are retried; every loser must then see a conflict.
+    expect(conflicts.length).toBe(CONCURRENT_RACERS - 1);
+    expect(retryable.length).toBe(0);
     // Zero actual server errors (503 is a graceful rejection, not an error)
     expect(serverErrors.length).toBe(0);
 

@@ -1,14 +1,16 @@
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { query, withTransaction } from '../db/pool.js';
+import { withTransaction } from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { IdempotencyError } from '../middleware/idempotency.js';
 import { boardCache } from '../utils/singleFlight.js';
+import { cancelPendingJoinRequests } from '../services/joinRequests.js';
 
 const createRequestSchema = z.object({
   teamId: z.string().uuid(),
-  message: z.string().max(280).default(''),
+  message: z.string().trim().max(280).default(''),
 });
+const requestIdParamsSchema = z.object({ id: z.string().uuid() });
 
 export const requestRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   // POST /api/requests (Request to join a team)
@@ -21,48 +23,56 @@ export const requestRoutes: FastifyPluginAsync = async (app: FastifyInstance) =>
     const { teamId, message } = parse.data;
     const userId = (req.user as any).id;
 
-    const teamLookup = await query(`SELECT hackathon_id, member_count, max_members FROM teams WHERE id = $1`, [teamId]);
-    if (teamLookup.rowCount === 0) {
-      return reply.status(404).send({ code: 'team_not_found', message: 'Team does not exist.' });
-    }
-    const team = teamLookup.rows[0];
-
-    // Check if user already on a team
-    const memberCheck = await query(
-      `SELECT team_id FROM team_members WHERE hackathon_id = $1 AND user_id = $2`,
-      [team.hackathon_id, userId]
-    );
-    if (memberCheck.rowCount && memberCheck.rowCount > 0) {
-      return reply.status(409).send({ code: 'already_on_team', message: 'You are already a member of a team in this hackathon.' });
-    }
-
-    // Check if team is already full
-    if (team.member_count >= team.max_members) {
-      return reply.status(409).send({ code: 'team_full', message: 'Team is already at maximum capacity.' });
-    }
-
-    // Insert pending request
     try {
-      const result = await query(
-        `INSERT INTO join_requests (team_id, user_id, message, status)
-         VALUES ($1, $2, $3, 'pending')
-         RETURNING id, team_id, user_id, message, status, created_at`,
-        [teamId, userId, message]
-      );
+      const request = await withTransaction(async (client) => {
+        const teamLookup = await client.query(
+          `SELECT hackathon_id, member_count, max_members
+           FROM teams
+           WHERE id = $1
+           FOR UPDATE`,
+          [teamId]
+        );
+        if (teamLookup.rowCount === 0) {
+          throw new IdempotencyError(404, 'team_not_found', 'Team does not exist.');
+        }
+        const team = teamLookup.rows[0];
 
-      await query(
-        `INSERT INTO audit_logs (hackathon_id, team_id, actor_id, action, details)
-         VALUES ($1, $2, $3, 'request_created', $4)`,
-        [team.hackathon_id, teamId, userId, JSON.stringify({ requestId: result.rows[0].id })]
-      );
+        const memberCheck = await client.query(
+          `SELECT team_id FROM team_members WHERE hackathon_id = $1 AND user_id = $2`,
+          [team.hackathon_id, userId]
+        );
+        if (memberCheck.rowCount && memberCheck.rowCount > 0) {
+          throw new IdempotencyError(409, 'already_on_team', 'You are already a member of a team in this hackathon.');
+        }
+        if (team.member_count >= team.max_members) {
+          throw new IdempotencyError(409, 'team_full', 'Team is already at maximum capacity.');
+        }
 
-      await query(
-        `SELECT pg_notify('team_events', $1)`,
-        [JSON.stringify({ type: 'request_created', teamId, hackathonId: team.hackathon_id, userId })]
-      );
+        const result = await client.query(
+          `INSERT INTO join_requests (team_id, user_id, message, status)
+           VALUES ($1, $2, $3, 'pending')
+           RETURNING id, team_id, user_id, message, status, created_at`,
+          [teamId, userId, message]
+        );
 
-      return reply.status(201).send(result.rows[0]);
+        await client.query(
+          `INSERT INTO audit_logs (hackathon_id, team_id, actor_id, action, details)
+           VALUES ($1, $2, $3, 'request_created', $4)`,
+          [team.hackathon_id, teamId, userId, JSON.stringify({ requestId: result.rows[0].id })]
+        );
+        await client.query(
+          `SELECT pg_notify('team_events', $1)`,
+          [JSON.stringify({ type: 'request_created', teamId, hackathonId: team.hackathon_id, userId })]
+        );
+
+        return result.rows[0];
+      });
+
+      return reply.status(201).send(request);
     } catch (err: any) {
+      if (err instanceof IdempotencyError) {
+        return reply.status(err.statusCode).send({ code: err.code, message: err.message });
+      }
       if (err.code === '23505') {
         return reply.status(409).send({
           code: 'request_exists',
@@ -75,7 +85,11 @@ export const requestRoutes: FastifyPluginAsync = async (app: FastifyInstance) =>
 
   // POST /api/requests/:id/accept (Leader Only)
   app.post('/:id/accept', { preHandler: [requireAuth] }, async (req, reply) => {
-    const { id: requestId } = req.params as { id: string };
+    const params = requestIdParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({ code: 'validation_error', errors: params.error.errors });
+    }
+    const requestId = params.data.id;
     const callerId = (req.user as any).id;
 
     try {
@@ -122,9 +136,28 @@ export const requestRoutes: FastifyPluginAsync = async (app: FastifyInstance) =>
           [team.hackathon_id, request.user_id]
         );
         if (requesterMem.rowCount && requesterMem.rowCount > 0) {
-          // Requester joined elsewhere: cancel this request
-          await client.query(`UPDATE join_requests SET status = 'cancelled' WHERE id = $1`, [requestId]);
-          throw new IdempotencyError(409, 'already_on_team', 'Requester has already joined another team in this hackathon.');
+          await client.query(
+            `UPDATE join_requests SET status = 'cancelled', updated_at = clock_timestamp() WHERE id = $1`,
+            [requestId]
+          );
+          await client.query(
+            `INSERT INTO audit_logs (hackathon_id, team_id, actor_id, action, details)
+             VALUES ($1, $2, $3, 'request_cancelled', $4)`,
+            [team.hackathon_id, team.id, callerId, JSON.stringify({ requestId, reason: 'requester_already_joined' })]
+          );
+          await client.query(
+            `SELECT pg_notify('team_events', $1)`,
+            [JSON.stringify({
+              type: 'request_cancelled',
+              teamId: team.id,
+              hackathonId: team.hackathon_id,
+              userId: request.user_id,
+            })]
+          );
+          return {
+            statusCode: 409,
+            body: { code: 'already_on_team', message: 'Requester has already joined another team in this hackathon.' },
+          };
         }
 
         // 5. Update team member_count
@@ -152,13 +185,7 @@ export const requestRoutes: FastifyPluginAsync = async (app: FastifyInstance) =>
           [requestId]
         );
 
-        // 8. Cancel requester's other pending requests
-        await client.query(
-          `UPDATE join_requests 
-           SET status = 'cancelled', updated_at = clock_timestamp() 
-           WHERE user_id = $1 AND id != $2 AND status = 'pending'`,
-          [request.user_id, requestId]
-        );
+        await cancelPendingJoinRequests(client, request.user_id, callerId, 'another_request_accepted', requestId);
 
         // 9. Write audit log
         await client.query(
@@ -191,7 +218,11 @@ export const requestRoutes: FastifyPluginAsync = async (app: FastifyInstance) =>
 
   // POST /api/requests/:id/decline (Leader Only)
   app.post('/:id/decline', { preHandler: [requireAuth] }, async (req, reply) => {
-    const { id: requestId } = req.params as { id: string };
+    const params = requestIdParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({ code: 'validation_error', errors: params.error.errors });
+    }
+    const requestId = params.data.id;
     const callerId = (req.user as any).id;
 
     try {
@@ -247,22 +278,63 @@ export const requestRoutes: FastifyPluginAsync = async (app: FastifyInstance) =>
 
   // DELETE /api/requests/:id (Requester cancels their own request)
   app.delete('/:id', { preHandler: [requireAuth] }, async (req, reply) => {
-    const { id: requestId } = req.params as { id: string };
+    const params = requestIdParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      return reply.status(400).send({ code: 'validation_error', errors: params.error.errors });
+    }
+    const requestId = params.data.id;
     const callerId = (req.user as any).id;
 
-    const res = await query(
-      `UPDATE join_requests 
-       SET status = 'cancelled', updated_at = clock_timestamp() 
-       WHERE id = $1 AND user_id = $2 AND status = 'pending' 
-       RETURNING team_id`,
-      [requestId, callerId]
-    );
+    try {
+      await withTransaction(async (client) => {
+        const result = await client.query(
+          `UPDATE join_requests
+           SET status = 'cancelled', updated_at = clock_timestamp()
+           WHERE id = $1 AND user_id = $2 AND status = 'pending'
+           RETURNING team_id`,
+          [requestId, callerId]
+        );
+        if (result.rowCount === 0) {
+          throw new IdempotencyError(
+            409,
+            'cannot_cancel',
+            'Request could not be cancelled (either not found, not yours, or no longer pending).'
+          );
+        }
 
-    if (res.rowCount === 0) {
-      return reply.status(409).send({
-        code: 'cannot_cancel',
-        message: 'Request could not be cancelled (either not found, not yours, or no longer pending).',
+        const teamResult = await client.query(
+          `SELECT hackathon_id FROM teams WHERE id = $1`,
+          [result.rows[0].team_id]
+        );
+        if (teamResult.rowCount === 0) {
+          throw new IdempotencyError(404, 'team_not_found', 'Team no longer exists.');
+        }
+
+        await client.query(
+          `INSERT INTO audit_logs (hackathon_id, team_id, actor_id, action, details)
+           VALUES ($1, $2, $3, 'request_cancelled', $4)`,
+          [
+            teamResult.rows[0].hackathon_id,
+            result.rows[0].team_id,
+            callerId,
+            JSON.stringify({ requestId }),
+          ]
+        );
+        await client.query(
+          `SELECT pg_notify('team_events', $1)`,
+          [JSON.stringify({
+            type: 'request_cancelled',
+            teamId: result.rows[0].team_id,
+            hackathonId: teamResult.rows[0].hackathon_id,
+            userId: callerId,
+          })]
+        );
       });
+    } catch (err) {
+      if (err instanceof IdempotencyError) {
+        return reply.status(err.statusCode).send({ code: err.code, message: err.message });
+      }
+      throw err;
     }
 
     return reply.send({ success: true, message: 'Join request cancelled.' });

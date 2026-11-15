@@ -1,24 +1,7 @@
-import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { query } from '../db/pool.js';
-
-async function requireAdmin(req: FastifyRequest, reply: FastifyReply) {
-  try {
-    await req.jwtVerify();
-  } catch {
-    return reply.status(401).send({
-      code: 'unauthorized',
-      message: 'Authentication token is required or invalid',
-    });
-  }
-
-  if ((req.user as any)?.role !== 'admin') {
-    return reply.status(403).send({
-      code: 'forbidden',
-      message: 'Admin access required.',
-    });
-  }
-}
+import { requireAdmin } from '../middleware/admin.js';
 
 export const adminRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user'`);

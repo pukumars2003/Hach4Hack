@@ -36,19 +36,37 @@ export async function withIdempotency<T>(
     const res = await action();
     return { replayed: false, statusCode: res.statusCode, body: res.body };
   }
+  if (key.trim().length === 0 || key.length > 128) {
+    throw new IdempotencyError(400, 'invalid_idempotency_key', 'Idempotency-Key must be 1 to 128 characters.');
+  }
 
   const reqHash = hashRequestBody(requestPayload);
 
-  // 1. Check existing record
-  const existing = await client.query(
-    `SELECT request_hash, status_code, response_body 
-     FROM idempotency_keys 
-     WHERE user_id = $1 AND key = $2 AND endpoint = $3
-     FOR UPDATE`,
-    [userId, key, endpoint]
+  // The unique insert serializes simultaneous retries before they can run the action.
+  const inserted = await client.query(
+    `INSERT INTO idempotency_keys (user_id, key, endpoint, request_hash)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id, key, endpoint) DO NOTHING
+     RETURNING user_id`,
+    [userId, key, endpoint, reqHash]
   );
 
-  if (existing.rowCount && existing.rowCount > 0) {
+  if (inserted.rowCount === 0) {
+    const existing = await client.query(
+      `SELECT request_hash, status_code, response_body
+       FROM idempotency_keys
+       WHERE user_id = $1 AND key = $2 AND endpoint = $3
+       FOR UPDATE`,
+      [userId, key, endpoint]
+    );
+    if (existing.rowCount === 0) {
+      throw new IdempotencyError(
+        503,
+        'idempotency_retry_required',
+        'The request could not be replayed safely; retry with the same idempotency key.'
+      );
+    }
+
     const row = existing.rows[0];
     if (row.request_hash !== reqHash) {
       throw new IdempotencyError(
@@ -59,29 +77,17 @@ export async function withIdempotency<T>(
     }
 
     if (row.status_code !== null) {
-      // Return cached committed response
       return {
         replayed: true,
         statusCode: row.status_code,
         body: row.response_body,
       };
     }
+    throw new IdempotencyError(409, 'idempotency_in_progress', 'An identical request is still in progress.');
   }
 
-  // 2. Insert key record if it didn't exist
-  if (!existing.rowCount || existing.rowCount === 0) {
-    await client.query(
-      `INSERT INTO idempotency_keys (user_id, key, endpoint, request_hash)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (user_id, key, endpoint) DO NOTHING`,
-      [userId, key, endpoint, reqHash]
-    );
-  }
-
-  // 3. Execute business logic
   const res = await action();
 
-  // 4. Update the idempotency record with final response status and payload
   await client.query(
     `UPDATE idempotency_keys 
      SET status_code = $1, response_body = $2 

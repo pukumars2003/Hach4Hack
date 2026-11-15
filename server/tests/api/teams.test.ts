@@ -219,6 +219,58 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
     createdTeamId = data.id;
   });
 
+  it('5a. PATCH /api/teams/:id: profile changes are recorded in the audit log', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/teams/${createdTeamId}`,
+      headers: { authorization: `Bearer ${user1Token}` },
+      payload: { description: 'Updated project plan', neededSkills: ['Rust'] },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const audit = await pool.query(
+      `SELECT details FROM audit_logs
+       WHERE team_id = $1 AND action = 'team_updated'
+       ORDER BY created_at DESC LIMIT 1`,
+      [createdTeamId]
+    );
+    expect(audit.rowCount).toBe(1);
+    expect(audit.rows[0].details.before.description).toBe('Building distributed algorithms');
+    expect(audit.rows[0].details.after.description).toBe('Updated project plan');
+  });
+
+  it('5b. GET /api/realtime/stream: only authenticated team members can subscribe', async () => {
+    const anonymous = await app.inject({
+      method: 'GET',
+      url: `/api/realtime/stream?hackathonId=${hackathonId}&teamId=${createdTeamId}`,
+    });
+    expect(anonymous.statusCode).toBe(401);
+
+    const nonMember = await app.inject({
+      method: 'GET',
+      url: `/api/realtime/stream?hackathonId=${hackathonId}&teamId=${createdTeamId}`,
+      headers: { authorization: `Bearer ${user2Token}` },
+    });
+    expect(nonMember.statusCode).toBe(403);
+  });
+
+  it('5c. POST /api/teams/lab/batch-racers: requires admin access', async () => {
+    const anonymous = await app.inject({
+      method: 'POST',
+      url: '/api/teams/lab/batch-racers',
+      payload: { count: 10 },
+    });
+    expect(anonymous.statusCode).toBe(401);
+
+    const participant = await app.inject({
+      method: 'POST',
+      url: '/api/teams/lab/batch-racers',
+      headers: { authorization: `Bearer ${user1Token}` },
+      payload: { count: 10 },
+    });
+    expect(participant.statusCode).toBe(403);
+  });
+
   it('6. POST /api/teams: user cannot create second team in same hackathon (409 already_on_team)', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -245,6 +297,39 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
     });
     expect(res.statusCode).toBe(409);
     expect(JSON.parse(res.body).code).toBe('name_taken');
+  });
+
+  it('7a. POST /api/teams: rejects capacities outside the hackathon bounds', async () => {
+    const aboveMax = await app.inject({
+      method: 'POST',
+      url: '/api/teams',
+      headers: { authorization: `Bearer ${user2Token}` },
+      payload: {
+        hackathonId,
+        name: `Oversized Team ${Date.now()}`,
+        maxMembers: 5,
+      },
+    });
+    expect(aboveMax.statusCode).toBe(400);
+    expect(JSON.parse(aboveMax.body).code).toBe('team_size_out_of_bounds');
+
+    const strictMinimum = await pool.query(
+      `INSERT INTO hackathons (name, slug, min_team_size, max_team_size, is_active)
+       VALUES ($1, $2, 3, 4, true) RETURNING id`,
+      [`Min Team Test ${Date.now()}`, `min-team-test-${Date.now()}`]
+    );
+    const belowMin = await app.inject({
+      method: 'POST',
+      url: '/api/teams',
+      headers: { authorization: `Bearer ${user2Token}` },
+      payload: {
+        hackathonId: strictMinimum.rows[0].id,
+        name: `Undersized Team ${Date.now()}`,
+        maxMembers: 2,
+      },
+    });
+    expect(belowMin.statusCode).toBe(400);
+    expect(JSON.parse(belowMin.body).code).toBe('team_size_out_of_bounds');
   });
 
   // 3. Board pagination & filtering
@@ -287,6 +372,17 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
     inviteId = data.id;
   });
 
+  it('10a. POST /api/teams/:id/invites: rejects invalid expiry values', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/teams/${createdTeamId}/invites`,
+      headers: { authorization: `Bearer ${user1Token}` },
+      payload: { expiresInHours: 0.5 },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body).code).toBe('validation_error');
+  });
+
   it('11. POST /api/teams/:id/invites: non-leader forbidden from creating invite code (403)', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -326,6 +422,68 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
     });
     expect(retryRes.statusCode).toBe(200);
     expect(retryRes.headers['idempotent-replayed']).toBe('true');
+  });
+
+  it('13. Concurrent same-key join retries replay one committed result', async () => {
+    const leaderRegistration = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: `idem_leader_${Date.now()}@test.com`,
+        password: 'Password123!',
+        name: 'Idempotency Team Leader',
+      },
+    });
+    const { user: leader, token: leaderToken } = JSON.parse(leaderRegistration.body);
+    const team = await app.inject({
+      method: 'POST',
+      url: '/api/teams',
+      headers: { authorization: `Bearer ${leaderToken}` },
+      payload: { hackathonId, name: `Idempotency Team ${Date.now()}`, maxMembers: 4 },
+    });
+    expect(team.statusCode).toBe(201);
+    const teamId = JSON.parse(team.body).id;
+    const invite = await app.inject({
+      method: 'POST',
+      url: `/api/teams/${teamId}/invites`,
+      headers: { authorization: `Bearer ${leaderToken}` },
+      payload: {},
+    });
+    expect(invite.statusCode).toBe(201);
+    const code = JSON.parse(invite.body).code;
+
+    const registration = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: `idem_racer_${Date.now()}@test.com`,
+        password: 'Password123!',
+        name: 'Idempotency Racer',
+      },
+    });
+    const { user, token } = JSON.parse(registration.body);
+    const key = `concurrent-join-${Date.now()}`;
+    const request = () => app.inject({
+      method: 'POST',
+      url: '/api/teams/join-by-code',
+      headers: { authorization: `Bearer ${token}`, 'idempotency-key': key },
+      payload: { code },
+    });
+
+    const [first, retry] = await Promise.all([request(), request()]);
+    expect(first.statusCode).toBe(200);
+    expect(retry.statusCode).toBe(200);
+    expect([first.headers['idempotent-replayed'], retry.headers['idempotent-replayed']]).toContain('true');
+    expect(JSON.parse(first.body)).toEqual(JSON.parse(retry.body));
+
+    const membership = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM team_members
+       WHERE team_id = $1 AND user_id = $2 AND hackathon_id = $3`,
+      [teamId, user.id, hackathonId]
+    );
+    expect(membership.rows[0].count).toBe(1);
+    expect(leader.id).toBe(JSON.parse(team.body).leader_id);
   });
 
   it('14. Idempotency Key Reuse with different body returns 422', async () => {
@@ -400,6 +558,40 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
     });
     expect(res.statusCode).toBe(409);
     expect(JSON.parse(res.body).code).toBe('request_exists');
+  });
+
+  it('17a. DELETE /api/requests/:id: cancellation is audited in the same transaction', async () => {
+    const user = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: {
+        email: `cancel_user_${Date.now()}@test.com`,
+        password: 'Password123!',
+        name: 'Cancellation Tester',
+      },
+    });
+    const token = JSON.parse(user.body).token;
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/requests',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { teamId: createdTeamId, message: 'Please consider my application.' },
+    });
+    expect(created.statusCode).toBe(201);
+    const canceled = await app.inject({
+      method: 'DELETE',
+      url: `/api/requests/${JSON.parse(created.body).id}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(canceled.statusCode).toBe(200);
+
+    const audit = await pool.query(
+      `SELECT 1 FROM audit_logs
+       WHERE team_id = $1 AND actor_id = $2 AND action = 'request_cancelled'
+       ORDER BY created_at DESC LIMIT 1`,
+      [createdTeamId, JSON.parse(user.body).user.id]
+    );
+    expect(audit.rowCount).toBe(1);
   });
 
   it('18. POST /api/requests/:id/accept: leader accepts join request', async () => {

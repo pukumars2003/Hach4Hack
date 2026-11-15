@@ -76,3 +76,7 @@ k6 run scripts/load-test.js 2>&1 | Tee-Object 'docs/proof/k6-100vu-terminal.txt'
 ```
 
 The terminal capture is the k6 CLI output; the HTML is the project-generated report built from k6 metrics.
+
+The GitHub Actions workflow also has a separate seeded 100-VU mixed-workload job. Its report is uploaded as a
+`k6-board-100vu-*` artifact after that workflow completes. Local proof figures above are not substitutes for
+an Actions run; the current unpushed workflow changes have no hosted performance result yet.

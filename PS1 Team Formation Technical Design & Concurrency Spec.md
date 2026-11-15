@@ -88,5 +88,5 @@ npm run dev
 npm test
 ```
 
-The latest local automated run passed 39 tests across five test files. The separate `npm run test:chaos`
+The latest local automated run passed 48 tests across six test files. The separate `npm run test:chaos`
 command is excluded from that suite and should only be used with a disposable test database.

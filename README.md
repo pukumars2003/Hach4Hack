@@ -19,16 +19,16 @@
 | **Participants Seeded** | 10,000 participants | **50,000 demo accounts** | Seeded |
 | **Teams Seeded** | 2,000 teams | **10,000 teams** | Seeded |
 | **Board Latency (p95)** | < 200 ms @ 100 VUs | **83–179 ms realistic mix; 88.21 ms warm-cache** | Pass on measured runs; cold runs are documented separately |
-| **Last-Seat Race** | 50 simultaneous racers | **Automated 50-way race; UI lab offers up to 250 racers** | Latest run: 1 winner, 49 conflicts |
+| **Last-Seat Race** | 50 simultaneous racers | **Automated 50-way race; UI lab offers up to 250 racers** | 1 winner, 49 final conflicts after safe retries |
 | **Winners per Last Seat** | Exactly 1 winner | **Exactly 1 winner (0 double-joins)** | Proven |
 | **Rules Enforcement** | Min/max sizes, 1 team per hackathon | **Postgres CHECK & UNIQUE constraints** | Proven |
 | **Leadership Handover** | Successor elected on leave | **Senior member promoted, or team deleted** | Proven |
 | **Idempotency** | Double-clicks/retries safe | **In-transaction idempotency keys table** | Proven |
 | **Real-Time Updates** | Live board & team changes | **PostgreSQL LISTEN/NOTIFY + SSE** | Implemented |
-| **Security & Entropy** | Rate limits, secure codes | **Crockford Base32 + SHA-256 + Rate limits** | Implemented |
+| **Security & Entropy** | Rate limits, secure codes | **60-bit Crockford codes + SHA-256; 5 invite attempts/user/min; API default 300 requests/IP/min** | Implemented |
 | **Audit Logs** | Who, what, when | **Append-only immutable audit_logs table** | Implemented |
 | **Teammate Suggestions** | Skill + timezone scoring | **Formula scoring with explicit breakdown** | Implemented |
-| **Test Suite** | At least 20 API tests in CI | **39 tests passed in the latest local run** | Verified |
+| **Test Suite** | At least 20 API tests in CI | **48 tests passed locally across 6 files** | Local pass; current CI run pending |
 | **Frontend UI** | Mobile-ready and accessible | **Hack4Hack lime/charcoal palette, responsive layouts, motion with reduced-motion support, keyboard shortcuts** | Implemented |
 | **Admin tools** | Browse registered users | **Searchable, paginated directory (200 per page)** | Verified locally |
 | **Deployment** | Free-tier live URL | [Live on Render](https://raceproof-app.onrender.com) | Live |
@@ -87,22 +87,31 @@ The automated suite sends 50 concurrent join requests for one remaining seat:
 ```bash
 npm run test:race
 ```
-*Latest run: 1 request returned `200 OK`, 49 returned `409 Conflict`, and the database roster remained exactly 4/4. The browser lab also offers 25, 50, 100, and 250 racers.*
+*Latest verified run: 1 request returned `200 OK`, 49 ended in `409 Conflict`, and the database roster remained exactly 4/4. Transient pool-capacity `503` responses are retried with the same idempotency keys before final assertions. The browser lab also offers 25, 50, 100, and 250 racers.*
 
-### 2. Full Invariants & API Suite (39 Tests)
+### 2. Full Invariants & API Suite (48 Tests)
 ```bash
 npm test
 ```
-The latest local run passed **39/39 tests** across authentication, admin access, team rules, requests, invite codes, audit logs, board-cache invalidation, and concurrency.
+The latest local run passed **48/48 tests across 6 files**, including authentication, admin access, team rules,
+requests, invite-code rate limits, audit behavior, board-cache invalidation, idempotency retries, and concurrency.
 
-### 3. Chaos Test: Mid-Join Process Termination
+### 3. GitHub Actions and k6 Artifact
+The [CI workflow](.github/workflows/ci.yml) runs the test suite, the separate 50-client last-seat race, and
+production builds. Its `board-load-test` job seeds 10,000 users and 2,000 teams, runs a 100-VU Grafana k6
+mixed board workload, and uploads terminal, HTML, JSON, and server-log artifacts. Push to `main`/`master`,
+open a pull request targeting either branch, or select **Actions → CI - Concurrency & Invariants Suite →
+Run workflow** to start it manually. The current unpushed changes have not yet produced a GitHub Actions
+result; use the completed run's artifact for judge-facing hosted metrics.
+
+### 4. Chaos Test: Mid-Join Process Termination
 The separate chaos test sends 50 concurrent joins, terminates the test server, and checks PostgreSQL
 member-count and capacity invariants after the requests settle. Run it only against a disposable test database:
 ```bash
 npm run test:chaos
 ```
 
-### 4. High-Concurrency Load Test & HTML Dashboard
+### 5. High-Concurrency Load Test & HTML Dashboard
 ```bash
 # Run official 100 VU load test with k6 (outputs docs/load-test-report.html):
 k6 run scripts/load-test.js
@@ -174,7 +183,7 @@ Even fully cached, the board endpoint dominates read traffic during a race. Thre
 - **Technical Concurrency Spec:** [PS1 Team Formation Technical Design & Concurrency Spec.md](PS1%20Team%20Formation%20Technical%20Design%20%26%20Concurrency%20Spec.md)
 - **Load Test Report & Analysis:** [docs/LOAD_TEST_REPORT.md](docs/LOAD_TEST_REPORT.md)
 - **Fresh k6 Proof Runs:** [docs/proof/README.md](docs/proof/README.md)
-- **5-Minute Walkthrough Script:** [docs/VIDEO_WALKTHROUGH_SCRIPT.md](docs/VIDEO_WALKTHROUGH_SCRIPT.md)
+- The judge walkthrough narration is kept in the ignored local `.local-only` folder and is intentionally not committed.
 - **Visual HTML Benchmark Dashboard:** [docs/load-test-report.html](docs/load-test-report.html)
 - **GitHub Actions CI Pipeline:** [.github/workflows/ci.yml](.github/workflows/ci.yml)
 - **Deployment Manifests:** [render.yaml](render.yaml) & [docker-compose.yml](docker-compose.yml)

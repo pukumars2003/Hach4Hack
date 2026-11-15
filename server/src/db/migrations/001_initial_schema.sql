@@ -11,11 +11,14 @@ DO $$ BEGIN
   CREATE TYPE audit_action AS ENUM (
     'team_created', 'member_joined', 'member_left', 'member_removed',
     'leader_transferred', 'request_created', 'request_accepted', 
-    'request_declined', 'request_cancelled', 'invite_created', 'invite_revoked', 'team_deleted'
+    'request_declined', 'request_cancelled', 'invite_created', 'invite_revoked', 'team_deleted',
+    'team_updated'
   );
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
+
+ALTER TYPE audit_action ADD VALUE IF NOT EXISTS 'team_updated';
 
 -- 2. Users Table
 CREATE TABLE IF NOT EXISTS users (
