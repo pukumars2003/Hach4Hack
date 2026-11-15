@@ -18,8 +18,8 @@
 | :--- | :--- | :--- | :---: |
 | **Participants Seeded** | 10,000 participants | **50,000 demo accounts** | Seeded |
 | **Teams Seeded** | 2,000 teams | **10,000 teams** | Seeded |
-| **Board Latency (p95)** | < 200 ms @ 100 VUs | **83–179 ms realistic mix; 88.21 ms warm-cache** | Pass on measured runs; cold runs are documented separately |
-| **Last-Seat Race** | 50 simultaneous racers | **Automated 50-way race; UI lab offers up to 250 racers** | 1 winner, 49 final conflicts after safe retries |
+| **Board Latency (p95)** | < 200 ms @ 100 VUs | **86.89 ms, 0% errors (Actions run #15, 100-VU mixed workload)** | Pass; local runs are documented separately |
+| **Last-Seat Race** | 50 simultaneous racers | **Automated 50-way race; UI lab offers up to 250 racers** | Actions #15: 1 winner, 49 conflicts, 4/4 roster |
 | **Winners per Last Seat** | Exactly 1 winner | **Exactly 1 winner (0 double-joins)** | Proven |
 | **Rules Enforcement** | Min/max sizes, 1 team per hackathon | **Postgres CHECK & UNIQUE constraints** | Proven |
 | **Leadership Handover** | Successor elected on leave | **Senior member promoted, or team deleted** | Proven |
@@ -28,7 +28,7 @@
 | **Security & Entropy** | Rate limits, secure codes | **60-bit Crockford codes + SHA-256; 5 invite attempts/user/min; API default 300 requests/IP/min** | Implemented |
 | **Audit Logs** | Who, what, when | **Append-only immutable audit_logs table** | Implemented |
 | **Teammate Suggestions** | Skill + timezone scoring | **Formula scoring with explicit breakdown** | Implemented |
-| **Test Suite** | At least 20 API tests in CI | **48 tests passed locally across 6 files** | Local pass; current CI run pending |
+| **Test Suite** | At least 20 API tests in CI | **48 tests passed across 6 files in Actions run #15** | Pass |
 | **Frontend UI** | Mobile-ready and accessible | **Hack4Hack lime/charcoal palette, responsive layouts, motion with reduced-motion support, keyboard shortcuts** | Implemented |
 | **Admin tools** | Browse registered users | **Searchable, paginated directory (200 per page)** | Verified locally |
 | **Deployment** | Free-tier live URL | [Live on Render](https://raceproof-app.onrender.com) | Live |
@@ -101,8 +101,10 @@ The [CI workflow](.github/workflows/ci.yml) runs the test suite, the separate 50
 production builds. Its `board-load-test` job seeds 10,000 users and 2,000 teams, runs a 100-VU Grafana k6
 mixed board workload, and uploads terminal, HTML, JSON, and server-log artifacts. Push to `main`/`master`,
 open a pull request targeting either branch, or select **Actions → CI - Concurrency & Invariants Suite →
-Run workflow** to start it manually. The current unpushed changes have not yet produced a GitHub Actions
-result; use the completed run's artifact for judge-facing hosted metrics.
+Run workflow** to start it manually. [Actions run #15](https://github.com/pukumars2003/Hach4Hack/actions/runs/43721590037) completed
+successfully: all 48 API tests passed, the 50-client race had one winner and 49 conflicts, and the 100-VU
+mixed board test measured **86.89 ms p95 with 0.00% errors**. Its terminal, HTML, and JSON proof files are
+available in [docs/proof](docs/proof/README.md); the detailed metrics and local-vs-hosted caveats are there.
 
 ### 4. Chaos Test: Mid-Join Process Termination
 The separate chaos test sends 50 concurrent joins, terminates the test server, and checks PostgreSQL

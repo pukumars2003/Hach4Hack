@@ -204,8 +204,10 @@ and concurrency.
 The workflow runs automatically for pushes and pull requests targeting `main` or `master`. To run it manually,
 open **Actions → CI - Concurrency & Invariants Suite → Run workflow** on GitHub. Wait for the `test` and
 `board-load-test` jobs to finish, then download the `k6-board-100vu-*` artifact from the run summary. It
-contains terminal output, the HTML dashboard, raw JSON metrics, and the API log. Current local changes do not
-have a hosted Actions result until pushed or manually dispatched.
+contains terminal output, the HTML dashboard, raw JSON metrics, and the API log. Actions run #15 completed
+successfully: 48 API tests passed, the 50-client race produced one winner and 49 conflicts, and the seeded
+100-VU board test measured **86.89 ms p95 with 0.00% errors**. See the [proof index](docs/proof/README.md)
+for the saved report files and run conditions.
 
 ---
 

@@ -1,7 +1,8 @@
 # Grafana k6 Load-Test Proof
 
 These are fresh local runs from 2026-11-15 against `http://localhost:3000/api/teams`, using Grafana k6
-v2.1.0 on Windows. The API health check reported healthy before and after the runs.
+v2.1.0 on Windows. The API health check reported healthy before and after the runs. A separate hosted Actions
+run is recorded below and is not mixed into the local-run table.
 
 Each run used a 15-second realistic mix (`MIX=true`), a 50 ms think time, and `WARMUP=0` so the requested
 VU count is the only measured scenario load. The mix serves most requests from the default board URL and
@@ -77,6 +78,27 @@ k6 run scripts/load-test.js 2>&1 | Tee-Object 'docs/proof/k6-100vu-terminal.txt'
 
 The terminal capture is the k6 CLI output; the HTML is the project-generated report built from k6 metrics.
 
-The GitHub Actions workflow also has a separate seeded 100-VU mixed-workload job. Its report is uploaded as a
-`k6-board-100vu-*` artifact after that workflow completes. Local proof figures above are not substitutes for
-an Actions run; the current unpushed workflow changes have no hosted performance result yet.
+## GitHub Actions Run #15
+
+[View the successful workflow run](https://github.com/pukumars2003/Hach4Hack/actions/runs/43721590037). Its
+CI job passed 48 API tests across six files; the separate race step produced one 200, 49 conflicts, no 503
+retries, and no server errors. The board-load job seeded 10,000 users and 2,000 teams, then ran 100 VUs for
+15 seconds with 50 ms think time and an 80/20 hot/varied URL mix (`WARMUP=0`).
+
+| Metric | Actions run #15 |
+| --- | ---: |
+| Requests | 16,648 |
+| Throughput | 1,103 req/s |
+| p50 / p95 / p99 | 26.92 / 86.89 / 140.22 ms |
+| Errors | 0.00% |
+| Cache hits | 81.46% (13,561 hits, 3,087 misses) |
+| Organizer threshold | Pass: p95 < 200 ms |
+| Internal 30 ms p95 goal | Not met |
+
+- [Terminal output](actions-run-15/k6-board-100vu-terminal.txt)
+- [HTML report](actions-run-15/k6-board-100vu.html)
+- [JSON metrics](actions-run-15/k6-board-100vu.json)
+
+The workflow artifact also includes the API log and is retained by GitHub until 2026-12-15. The Actions
+measurement is a hosted mixed workload, not an uncached-only benchmark; compare it with local figures only
+when accounting for workload mix, dataset, and runner conditions.

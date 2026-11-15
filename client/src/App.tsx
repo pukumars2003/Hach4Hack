@@ -27,6 +27,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<'board' | 'my-team' | 'suggestions' | 'lab'>('board');
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedTeamData, setSelectedTeamData] = useState<ITeamDetail | null>(null);
+  const [freshInvite, setFreshInvite] = useState<{ teamId: string; code: string } | null>(null);
 
   // Board state
   const [teams, setTeams] = useState<Team[]>([]);
@@ -51,6 +52,8 @@ export function App() {
   const showToast = (message: string, type: 'alert' | 'info' | 'success' = 'info') => {
     setNotification({ message, type });
   };
+
+  const clearFreshInvite = useCallback(() => setFreshInvite(null), []);
 
   // 1. Initial Load: hackathons + current user (if a token is present)
   const loadUserAndHackathons = useCallback(async () => {
@@ -209,12 +212,17 @@ export function App() {
   // Handlers
   const handleLeaveTeam = async () => {
     if (!userMembership) return;
-    if (!confirm('Are you sure you want to leave this team?')) return;
+    const deletesTeam = selectedTeamData?.members.length === 1;
+    const confirmation = deletesTeam
+      ? 'You are the last member. Leaving will permanently delete this team. Continue?'
+      : 'Are you sure you want to leave this team? Leadership will pass to another member if you are the leader.';
+    if (!confirm(confirmation)) return;
 
     try {
       const res = await api.leaveTeam(userMembership.team_id);
-      showToast(res.message, 'info');
+      showToast(res.message, 'success');
       setUserMembership(null);
+      setFreshInvite(null);
       setSelectedTeamId(null);
       setActiveTab('board');
       fetchTeams(true);
@@ -290,12 +298,16 @@ export function App() {
           <div className="max-w-7xl mx-auto py-8 px-4 sm:px-8">
             <TeammateSuggestions teamId={userMembership?.team_id} />
           </div>
-        ) : selectedTeamId && selectedTeamData ? (
+        ) : selectedTeamId && selectedTeamData?.id === selectedTeamId ? (
           <TeamDetail
+            key={selectedTeamId}
             team={selectedTeamData}
             currentUser={currentUser}
+            freshInviteCode={freshInvite?.teamId === selectedTeamData.id ? freshInvite.code : null}
+            onFreshInviteConsumed={clearFreshInvite}
             onBack={() => {
               setSelectedTeamId(null);
+              setFreshInvite(null);
               setActiveTab('board');
             }}
             onRefresh={fetchSelectedTeam}
@@ -349,10 +361,21 @@ export function App() {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         hackathonId={activeHackathonId}
-        onSuccess={(newTeam) => {
-          showToast(`Team "${newTeam.name}" created!`, 'success');
-          loadUserAndHackathons();
+        onSuccess={async (newTeam) => {
+          setFreshInvite(null);
+          let inviteCode: string | null = null;
+          try {
+            const invite = await api.createInvite(newTeam.id);
+            inviteCode = invite.code;
+            setFreshInvite({ teamId: newTeam.id, code: invite.code });
+          } catch (err: any) {
+            showToast(`Team created, but invite creation failed: ${err.message}`, 'alert');
+          }
+          await loadUserAndHackathons();
           setSelectedTeamId(newTeam.id);
+          if (inviteCode) {
+            showToast(`Team "${newTeam.name}" created. Invite code is ready to share.`, 'success');
+          }
         }}
       />
 

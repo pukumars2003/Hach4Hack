@@ -99,7 +99,7 @@ export const api = {
   joinByCode: (code: string, idempotencyKey?: string) =>
     apiRequest<any>('/teams/join-by-code', { method: 'POST', body: JSON.stringify({ code }), idempotencyKey }),
   leaveTeam: (id: string, idempotencyKey?: string) =>
-    apiRequest<any>(`/teams/${id}/leave`, { method: 'POST', idempotencyKey }),
+    apiRequest<any>(`/teams/${id}/leave`, { method: 'POST', body: JSON.stringify({}), idempotencyKey }),
   removeMember: (teamId: string, targetUserId: string) =>
     apiRequest<any>(`/teams/${teamId}/remove-member`, { method: 'POST', body: JSON.stringify({ targetUserId }) }),
   updateTeam: (id: string, body: any) =>

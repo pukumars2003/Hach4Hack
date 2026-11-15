@@ -6,6 +6,8 @@ import { api } from '../api/client.js';
 interface TeamDetailProps {
   team: ITeamDetail;
   currentUser: User | null;
+  freshInviteCode?: string | null;
+  onFreshInviteConsumed?: () => void;
   onBack: () => void;
   onRefresh: () => void;
   onLeaveTeam: () => void;
@@ -14,11 +16,14 @@ interface TeamDetailProps {
 export function TeamDetail({
   team,
   currentUser,
+  freshInviteCode,
+  onFreshInviteConsumed,
   onBack,
   onRefresh,
   onLeaveTeam,
 }: TeamDetailProps) {
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
   const [isRenewingCode, setIsRenewingCode] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -26,6 +31,14 @@ export function TeamDetail({
 
   const isLeader = currentUser?.id === team.leader_id;
   const isMember = team.members.some((m) => m.user_id === currentUser?.id);
+  const isLastMember = team.members.length === 1;
+
+  useEffect(() => {
+    if (!freshInviteCode) return;
+    setInviteCode(freshInviteCode);
+    setCopiedCode(false);
+    onFreshInviteConsumed?.();
+  }, [freshInviteCode, onFreshInviteConsumed]);
 
   // Load audit logs and suggestions for this team
   useEffect(() => {
@@ -60,7 +73,8 @@ export function TeamDetail({
         await api.revokeInvite(team.id, activeInvite.id);
       }
       const res = await api.createInvite(team.id, 24);
-      setCopiedCode(res.code);
+      setInviteCode(res.code);
+      setCopiedCode(false);
       onRefresh();
     } catch (err: any) {
       setActionError(err.message);
@@ -100,10 +114,16 @@ export function TeamDetail({
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedCode(text);
-    setTimeout(() => setCopiedCode(null), 3000);
+  const copyToClipboard = async () => {
+    if (!inviteCode) return;
+    setActionError(null);
+    try {
+      await navigator.clipboard.writeText(inviteCode);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 3000);
+    } catch {
+      setActionError('Clipboard access failed. Select the invite code and copy it manually.');
+    }
   };
 
   const getInitials = (name?: string) => {
@@ -285,31 +305,40 @@ export function TeamDetail({
           {/* Card 1: Invite Code (Pine background) */}
           <div className="bg-pine text-[#F3F1EA] rounded-[14px] p-6 flex flex-col gap-3 shadow-md">
             <div className="text-[12px] font-semibold tracking-wider text-[#C9D8D5] uppercase font-mono">
-              INVITE CODE (EXPIRES IN 24 HOURS)
+              INVITE CODE
             </div>
 
-            <div className="font-mono font-bold text-2xl tracking-wider select-all text-white py-1">
-              {activeInvite ? activeInvite.code_hash?.slice(0, 14).toUpperCase() || 'K7QM-2XWD-9PFH' : 'NO CODE ACTIVE'}
+            <div className="font-mono font-bold text-xl sm:text-2xl tracking-wider break-all select-all text-white py-1" aria-live="polite">
+              {inviteCode || (isLeader ? activeInvite ? 'ACTIVE CODE HIDDEN' : 'NO CODE ACTIVE' : 'ASK TEAM LEADER')}
             </div>
 
-            <div className="flex gap-2.5 pt-1">
-              <button
-                onClick={() => copyToClipboard(activeInvite?.code_hash?.slice(0, 14).toUpperCase() || '')}
-                className="flex-1 h-10 border-0 rounded-lg bg-mint hover:bg-mint-hover text-pine font-semibold text-[14px] transition-colors flex items-center justify-center gap-1.5"
-              >
-                {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span>{copiedCode ? 'Copied!' : 'Copy code'}</span>
-              </button>
-              {isLeader && (
+            {isLeader && activeInvite && !inviteCode && (
+              <p className="text-xs text-[#C9D8D5]">
+                Codes are shown only when generated. Renew to get a new shareable code.
+              </p>
+            )}
+
+            {isLeader ? (
+              <div className="flex gap-2.5 pt-1">
+                <button
+                  onClick={copyToClipboard}
+                  disabled={!inviteCode}
+                  className="flex-1 h-10 border-0 rounded-lg bg-mint hover:bg-mint-hover text-pine font-semibold text-[14px] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  <span>{copiedCode ? 'Copied!' : 'Copy code'}</span>
+                </button>
                 <button
                   onClick={handleRenewInvite}
                   disabled={isRenewingCode}
                   className="flex-1 h-10 border border-neutral-600 rounded-lg bg-transparent text-neutral-100 hover:bg-white/10 font-semibold text-[14px] transition-colors disabled:opacity-50"
                 >
-                  {isRenewingCode ? 'Renewing...' : 'Revoke & renew'}
+                  {isRenewingCode ? 'Generating...' : inviteCode ? 'Renew code' : activeInvite ? 'Revoke & renew' : 'Generate code'}
                 </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <p className="text-xs text-[#C9D8D5]">Ask the team leader for a code, then choose Join by code.</p>
+            )}
           </div>
 
           {/* Card 2: Join Requests */}
@@ -394,7 +423,7 @@ export function TeamDetail({
               onClick={onLeaveTeam}
               className="h-11 border border-danger rounded-[10px] bg-white text-danger font-semibold text-[15px] hover:bg-red-50 transition-colors shadow-sm"
             >
-              Leave team
+              {isLeader && isLastMember ? 'Delete team' : 'Leave team'}
             </button>
           )}
         </div>

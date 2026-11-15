@@ -13,7 +13,7 @@ export function CreateTeamModal({
   isOpen: boolean;
   onClose: () => void;
   hackathonId: string;
-  onSuccess: (team: Team) => void;
+  onSuccess: (team: Team) => void | Promise<void>;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -42,7 +42,7 @@ export function CreateTeamModal({
         neededSkills,
         maxMembers,
       });
-      onSuccess(newTeam);
+      await onSuccess(newTeam);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to create team');
@@ -209,7 +209,7 @@ export function JoinCodeModal({
               autoFocus
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="e.g. K7QM-2XWD-9PFH"
+              placeholder="Paste your invite code"
               className="w-full px-4 py-3 bg-white border border-borderMuted rounded-[10px] text-charcoal text-center text-lg font-mono font-bold tracking-widest placeholder:text-muted placeholder:font-sans placeholder:tracking-normal focus:outline-none focus:border-teal"
             />
             <p className="text-[12px] text-muted mt-2">
