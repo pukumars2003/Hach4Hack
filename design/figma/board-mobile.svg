@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <rect width="390" height="844" fill="#F5F4F0"/>
+  <rect width="390" height="66" fill="#FFFFFF"/>
+  <path d="M0 65.5H390" stroke="#E8E6E0"/>
+  <rect x="18" y="14" width="36" height="36" rx="11" fill="#171717"/>
+  <path d="M27 39V25h4l4 7 4-7h4v14h-4v-8l-4 6-4-6v8z" fill="#FFD447"/>
+  <text x="63" y="38" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="800" fill="#171717">Hack4Hack</text>
+  <circle cx="350" cy="32" r="18" fill="#F0EEE8"/>
+  <circle cx="350" cy="27" r="5" fill="#B9B7AF"/><path d="M340 42c1-6 4-9 10-9s9 3 10 9" fill="#B9B7AF"/>
+
+  <rect x="18" y="84" width="354" height="216" rx="24" fill="#191919"/>
+  <circle cx="333" cy="104" r="82" fill="#242424"/>
+  <rect x="38" y="104" width="110" height="26" rx="13" fill="#2B2A26"/>
+  <circle cx="53" cy="117" r="3.5" fill="#FFD447"/>
+  <text x="64" y="121" font-family="Inter,Arial,sans-serif" font-size="9" font-weight="750" letter-spacing="0.7" fill="#F7F6F1">LIVE TEAM BOARD</text>
+  <text x="38" y="171" font-family="Inter,Arial,sans-serif" font-size="31" font-weight="800" letter-spacing="-1.1" fill="#FFFFFF">Build brilliant</text>
+  <text x="38" y="207" font-family="Inter,Arial,sans-serif" font-size="31" font-weight="800" letter-spacing="-1.1" fill="#FFD447">things together.</text>
+  <text x="40" y="235" font-family="Inter,Arial,sans-serif" font-size="12" fill="#C5C3BD">Find your people. Make it happen.</text>
+  <rect x="38" y="253" width="314" height="38" rx="12" fill="#FFD447"/>
+  <text x="134" y="277" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="750" fill="#171717">＋  Create a team</text>
+
+  <text x="18" y="337" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.4" fill="#171717">Find your next team</text>
+  <text x="18" y="358" font-family="Inter,Arial,sans-serif" font-size="12" fill="#77766F">12 teams looking for builders</text>
+  <rect x="18" y="377" width="354" height="46" rx="13" fill="#FFFFFF" stroke="#E1DFD8"/>
+  <circle cx="39" cy="397" r="6" fill="none" stroke="#85837C" stroke-width="1.7"/>
+  <path d="m44 402 5 5" stroke="#85837C" stroke-width="1.7" stroke-linecap="round"/>
+  <text x="59" y="402" font-family="Inter,Arial,sans-serif" font-size="13" fill="#929088">Search teams or skills</text>
+  <rect x="18" y="434" width="112" height="34" rx="11" fill="#FFF6D6"/>
+  <circle cx="34" cy="451" r="4" fill="#C08B00"/>
+  <text x="45" y="455" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="700" fill="#5A4300">Open seats</text>
+  <rect x="138" y="434" width="105" height="34" rx="11" fill="#FFFFFF" stroke="#E1DFD8"/>
+  <text x="157" y="455" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="650" fill="#45443F">Any skill  ▾</text>
+  <rect x="251" y="434" width="121" height="34" rx="11" fill="#FFFFFF" stroke="#E1DFD8"/>
+  <text x="265" y="455" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="650" fill="#45443F">Join with code</text>
+
+  <rect x="18" y="484" width="354" height="154" rx="19" fill="#FFFFFF" stroke="#E6E4DE"/>
+  <rect x="34" y="500" width="38" height="38" rx="12" fill="#F1E9FF"/>
+  <text x="43" y="525" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="800" fill="#7051A5">AI</text>
+  <rect x="244" y="505" width="111" height="25" rx="12.5" fill="#FFF6D6"/>
+  <circle cx="258" cy="517.5" r="3.5" fill="#C08B00"/>
+  <text x="269" y="522" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="700" fill="#725500">FORMING · 3/4</text>
+  <text x="34" y="565" font-family="Inter,Arial,sans-serif" font-size="17" font-weight="800" fill="#171717">AI for Good</text>
+  <text x="34" y="585" font-family="Inter,Arial,sans-serif" font-size="11" fill="#77766F">Making healthcare more accessible.</text>
+  <rect x="34" y="598" width="56" height="23" rx="8" fill="#F3F1EC"/><text x="45" y="614" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="650" fill="#45443F">React</text>
+  <rect x="97" y="598" width="61" height="23" rx="8" fill="#F3F1EC"/><text x="107" y="614" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="650" fill="#45443F">Python</text>
+  <text x="34" y="632" font-family="Inter,Arial,sans-serif" font-size="10" fill="#929088">3 builders · UTC−5</text>
+  <text x="309" y="618" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="750" fill="#171717">View →</text>
+
+  <rect x="18" y="651" width="354" height="154" rx="19" fill="#FFFFFF" stroke="#E6E4DE"/>
+  <rect x="34" y="667" width="38" height="38" rx="12" fill="#E2EFF0"/>
+  <text x="42" y="692" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="800" fill="#35656A">UX</text>
+  <rect x="256" y="672" width="99" height="25" rx="12.5" fill="#FFF6D6"/>
+  <circle cx="270" cy="684.5" r="3.5" fill="#C08B00"/>
+  <text x="281" y="689" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="700" fill="#725500">OPEN · 2/5</text>
+  <text x="34" y="732" font-family="Inter,Arial,sans-serif" font-size="17" font-weight="800" fill="#171717">Green City Lab</text>
+  <text x="34" y="752" font-family="Inter,Arial,sans-serif" font-size="11" fill="#77766F">Small ideas for a more livable city.</text>
+  <rect x="34" y="765" width="69" height="23" rx="8" fill="#F3F1EC"/><text x="45" y="781" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="650" fill="#45443F">Research</text>
+  <rect x="110" y="765" width="51" height="23" rx="8" fill="#F3F1EC"/><text x="120" y="781" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="650" fill="#45443F">Figma</text>
+  <text x="34" y="799" font-family="Inter,Arial,sans-serif" font-size="10" fill="#929088">2 builders · UTC+1</text>
+  <text x="309" y="785" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="750" fill="#171717">View →</text>
+</svg>

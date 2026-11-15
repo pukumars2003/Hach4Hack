@@ -604,6 +604,87 @@ export const teamRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
     }
   });
 
+  // DELETE /api/teams/:id (Leader deletes the whole team)
+  app.delete('/:id', { preHandler: [requireAuth] }, async (req, reply) => {
+    const params = teamIdParamsSchema.safeParse(req.params);
+    const body = z.object({}).strict().safeParse(req.body ?? {});
+    if (!params.success || !body.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        errors: [...(params.success ? [] : params.error.errors), ...(body.success ? [] : body.error.errors)],
+      });
+    }
+
+    const teamId = params.data.id;
+    const userId = (req.user as any).id;
+    const idempotencyKey = req.headers['idempotency-key'] as string | undefined;
+
+    try {
+      const outcome = await withTransaction(async (client) => {
+        return withIdempotency(
+          client,
+          userId,
+          idempotencyKey,
+          `/api/teams/${teamId}/delete`,
+          body.data,
+          async () => {
+            const teamResult = await client.query(
+              `SELECT hackathon_id, leader_id, member_count, name
+               FROM teams
+               WHERE id = $1
+               FOR UPDATE`,
+              [teamId]
+            );
+            if (teamResult.rowCount === 0) {
+              throw new IdempotencyError(404, 'team_not_found', 'Team does not exist.');
+            }
+
+            const team = teamResult.rows[0];
+            if (team.leader_id !== userId) {
+              throw new IdempotencyError(403, 'not_leader', 'Only the team leader can delete the team.');
+            }
+
+            await client.query(`DELETE FROM teams WHERE id = $1`, [teamId]);
+            await client.query(
+              `INSERT INTO audit_logs (hackathon_id, team_id, actor_id, action, details)
+               VALUES ($1, $2, $3, 'team_deleted', $4)`,
+              [
+                team.hackathon_id,
+                teamId,
+                userId,
+                JSON.stringify({ reason: 'leader_deleted', teamName: team.name, memberCount: team.member_count }),
+              ]
+            );
+            await client.query(
+              `SELECT pg_notify('team_events', $1)`,
+              [JSON.stringify({ type: 'team_deleted', teamId, hackathonId: team.hackathon_id, actorId: userId })]
+            );
+
+            return {
+              statusCode: 200,
+              body: {
+                success: true,
+                teamDeleted: true,
+                message: 'Team deleted. Its members, requests, and invite codes were removed.',
+              },
+            };
+          }
+        );
+      });
+
+      boardCache.invalidate();
+      if (outcome.replayed) {
+        reply.header('Idempotent-Replayed', 'true');
+      }
+      return reply.status(outcome.statusCode).send(outcome.body);
+    } catch (err: any) {
+      if (err instanceof IdempotencyError) {
+        return reply.status(err.statusCode).send({ code: err.code, message: err.message });
+      }
+      throw err;
+    }
+  });
+
   // POST /api/teams/:id/remove-member (Leader Only)
   app.post('/:id/remove-member', { preHandler: [requireAuth] }, async (req, reply) => {
     const params = teamIdParamsSchema.safeParse(req.params);

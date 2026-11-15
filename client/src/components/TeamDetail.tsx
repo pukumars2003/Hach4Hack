@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Copy, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Copy, Check, AlertCircle, Trash2 } from 'lucide-react';
 import { TeamDetail as ITeamDetail, User } from '../types.js';
 import { api } from '../api/client.js';
 
@@ -11,6 +11,7 @@ interface TeamDetailProps {
   onBack: () => void;
   onRefresh: () => void;
   onLeaveTeam: () => void;
+  onDeleteTeam: () => void;
 }
 
 export function TeamDetail({
@@ -21,6 +22,7 @@ export function TeamDetail({
   onBack,
   onRefresh,
   onLeaveTeam,
+  onDeleteTeam,
 }: TeamDetailProps) {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -417,14 +419,27 @@ export function TeamDetail({
             </div>
           )}
 
-          {/* Leave Team Button */}
+          {/* Team membership actions */}
           {isMember && (
-            <button
-              onClick={onLeaveTeam}
-              className="h-11 border border-danger rounded-[10px] bg-white text-danger font-semibold text-[15px] hover:bg-red-50 transition-colors shadow-sm"
-            >
-              {isLeader && isLastMember ? 'Delete team' : 'Leave team'}
-            </button>
+            <div className="flex flex-col gap-2">
+              {isLeader && (
+                <button
+                  onClick={onDeleteTeam}
+                  className="h-11 border border-danger rounded-[10px] bg-white text-danger font-semibold text-[15px] hover:bg-red-50 transition-colors shadow-sm inline-flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete team
+                </button>
+              )}
+              {!(isLeader && isLastMember) && (
+                <button
+                  onClick={onLeaveTeam}
+                  className="h-11 border border-borderMuted rounded-[10px] bg-white text-charcoal font-semibold text-[15px] hover:bg-canvas transition-colors shadow-sm"
+                >
+                  Leave team
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

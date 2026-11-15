@@ -231,6 +231,32 @@ export function App() {
     }
   };
 
+  const handleDeleteTeam = async () => {
+    if (!userMembership || !selectedTeamData) return;
+    if (currentUser?.id !== selectedTeamData.leader_id) {
+      showToast('Only the team leader can delete the team.', 'alert');
+      return;
+    }
+
+    const confirmed = confirm(
+      `Delete "${selectedTeamData.name}" for everyone? This removes all ${selectedTeamData.members.length} members, pending requests, and invite codes. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await api.deleteTeam(selectedTeamData.id);
+      showToast(res.message, 'success');
+      setUserMembership(null);
+      setFreshInvite(null);
+      setSelectedTeamId(null);
+      setSelectedTeamData(null);
+      setActiveTab('board');
+      fetchTeams(true);
+    } catch (err: any) {
+      showToast(err.message, 'alert');
+    }
+  };
+
   const handleLogout = () => {
     clearAuthToken();
     setCurrentUser(null);
@@ -312,6 +338,7 @@ export function App() {
             }}
             onRefresh={fetchSelectedTeam}
             onLeaveTeam={handleLeaveTeam}
+            onDeleteTeam={handleDeleteTeam}
           />
         ) : (
           <LiveBoard

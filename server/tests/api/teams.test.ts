@@ -696,6 +696,91 @@ describe('Complete API Test Suite (50+ Invariants & Edge Cases)', () => {
     expect(teamCheck.rowCount).toBe(0);
   });
 
+  it('23a. DELETE /api/teams/:id: promoted leader can delete the team, non-leaders cannot', async () => {
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/teams',
+      headers: { authorization: `Bearer ${user1Token}` },
+      payload: {
+        hackathonId,
+        name: `Leader Delete Test ${Date.now()}`,
+        maxMembers: 4,
+      },
+    });
+    expect(createRes.statusCode).toBe(201);
+    const teamId = JSON.parse(createRes.body).id;
+
+    const firstInvite = await app.inject({
+      method: 'POST',
+      url: `/api/teams/${teamId}/invites`,
+      headers: { authorization: `Bearer ${user1Token}` },
+      payload: { expiresInHours: 24 },
+    });
+    expect(firstInvite.statusCode).toBe(201);
+    const firstCode = JSON.parse(firstInvite.body).code;
+
+    const joinSecondMember = await app.inject({
+      method: 'POST',
+      url: '/api/teams/join-by-code',
+      headers: { authorization: `Bearer ${user2Token}`, 'idempotency-key': `delete-test-join-2-${Date.now()}` },
+      payload: { code: firstCode },
+    });
+    expect(joinSecondMember.statusCode).toBe(200);
+
+    const forbiddenDelete = await app.inject({
+      method: 'DELETE',
+      url: `/api/teams/${teamId}`,
+      headers: { authorization: `Bearer ${user2Token}`, 'idempotency-key': `delete-test-forbidden-${Date.now()}` },
+      payload: {},
+    });
+    expect(forbiddenDelete.statusCode).toBe(403);
+
+    const leaderLeave = await app.inject({
+      method: 'POST',
+      url: `/api/teams/${teamId}/leave`,
+      headers: { authorization: `Bearer ${user1Token}`, 'idempotency-key': `delete-test-leave-${Date.now()}` },
+      payload: {},
+    });
+    expect(leaderLeave.statusCode).toBe(200);
+    expect(JSON.parse(leaderLeave.body).newLeaderId).toBe(user2.id);
+
+    const secondInvite = await app.inject({
+      method: 'POST',
+      url: `/api/teams/${teamId}/invites`,
+      headers: { authorization: `Bearer ${user2Token}` },
+      payload: { expiresInHours: 24 },
+    });
+    expect(secondInvite.statusCode).toBe(201);
+
+    const joinThirdMember = await app.inject({
+      method: 'POST',
+      url: '/api/teams/join-by-code',
+      headers: { authorization: `Bearer ${user3Token}`, 'idempotency-key': `delete-test-join-3-${Date.now()}` },
+      payload: { code: JSON.parse(secondInvite.body).code },
+    });
+    expect(joinThirdMember.statusCode).toBe(200);
+
+    const promotedLeaderDelete = await app.inject({
+      method: 'DELETE',
+      url: `/api/teams/${teamId}`,
+      headers: { authorization: `Bearer ${user2Token}`, 'idempotency-key': `delete-test-leader-${Date.now()}` },
+      payload: {},
+    });
+    expect(promotedLeaderDelete.statusCode).toBe(200);
+    expect(JSON.parse(promotedLeaderDelete.body).teamDeleted).toBe(true);
+
+    const remainingTeam = await pool.query('SELECT id FROM teams WHERE id = $1', [teamId]);
+    const remainingMembers = await pool.query('SELECT user_id FROM team_members WHERE team_id = $1', [teamId]);
+    const deletionAudit = await pool.query(
+      `SELECT details FROM audit_logs WHERE team_id = $1 AND actor_id = $2 AND action = 'team_deleted'`,
+      [teamId, user2.id]
+    );
+    expect(remainingTeam.rowCount).toBe(0);
+    expect(remainingMembers.rowCount).toBe(0);
+    expect(deletionAudit.rowCount).toBe(1);
+    expect(deletionAudit.rows[0].details.reason).toBe('leader_deleted');
+  });
+
   // 12. Audit Log Immutability
   it('24. Audit Log Immutability: direct UPDATE or DELETE on audit_logs raises an exception', async () => {
     const logRes = await pool.query('SELECT id FROM audit_logs LIMIT 1');
