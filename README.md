@@ -115,6 +115,9 @@ npm run load-test
 Fresh local proof runs are available in [docs/proof](docs/proof/README.md): 1, 100, and 250 VUs passed
 the p95 target; 500 VUs measured 272.41 ms p95 with 1.60% errors and failed the target. Terminal captures,
 HTML reports, and JSON metrics are included for every run.
+The 100-VU mixed run measured 95.68 ms p95; the default hot-cache run measured 2.83 ms in the supplied
+terminal output and 39.03 ms on a later same-settings rerun, illustrating both the cache-mode difference
+and run-to-run variance.
 The 500-VU run had connection refusals while k6 and the API shared the local host. RAM was not measured, so
 resource limits are a likely explanation, not a confirmed diagnosis; a separate-server run is still needed.
 

@@ -14,22 +14,32 @@
 
 ## Fresh Local k6 Proof (2026-11-15)
 
-Runs used Grafana k6 2.1.0, a 15-second realistic mix, and no setup warm-up traffic. The current local
-database row count was not separately measured for these runs. The k6 generator and API shared the local
-Windows host; 387 requests were refused during the 500-VU run. RAM and CPU telemetry was not captured, so
-memory pressure is plausible but not proven. A dedicated-server run may differ, but has not been measured.
+Runs used Grafana k6 2.1.0, 15 seconds per measured scenario, and 50 ms think time. Realistic-mix runs
+used `MIX=true` and `WARMUP=0`; warm runs used the default single hot URL and 1,000 setup requests. The
+current local database row count was not separately measured for these runs.
 
-The historical full-seed realistic-mix runs below use broadly the same traffic shape, but have a measured
-10,078-team dataset and a 1,000-request setup warm-up; this local ladder disabled setup warm-up and did not
-re-audit the dataset size. Host conditions also differ. The historical 3.43 ms p95 result was a warm-cache
-run on the smaller 2,039-team dataset, so it is a different hot-URL workload from this mixed run.
+| VUs | Mode | Setup warm-up | Requests | p95 | Errors | Result |
+| ---: | --- | ---: | ---: | ---: | ---: | :---: |
+| 1 | Realistic mix | 0 | 262 | 8.92 ms | 0.00% | Pass |
+| 100 | Realistic mix | 0 | 12,359 | 95.68 ms | 0.00% | Pass |
+| 100 | Warm, user-shared run | 1,000 | 29,308 | 2.83 ms | 0.00% | Pass |
+| 100 | Warm, subsequent rerun | 1,000 | 24,766 | 39.03 ms | 0.00% | Pass |
+| 250 | Realistic mix | 0 | 24,728 | 183.35 ms | 0.00% | Pass |
+| 500 | Realistic mix | 0 | 24,258 | 272.41 ms | 1.60% | Fail |
 
-| VUs | Requests | p95 | Errors | Result |
-| ---: | ---: | ---: | ---: | :---: |
-| 1 | 262 | 8.92 ms | 0.00% | Pass |
-| 100 | 12,359 | 95.68 ms | 0.00% | Pass |
-| 250 | 24,728 | 183.35 ms | 0.00% | Pass |
-| 500 | 24,258 | 272.41 ms | 1.60% | Fail |
+The default `k6 run scripts/load-test.js` is warm mode: after setup, VUs repeatedly fetch the same board
+URL. The supplied 2.83 ms result had 99.93% cache hits. The 95.68 ms result is from the realistic mix,
+which varies 20% of requests across filters and cursors and had a lower cache-hit ratio. They measure
+different workloads. A subsequent warm-mode rerun with the same settings measured 39.03 ms p95 and 99.85%
+cache hits; both warm runs passed the 200 ms threshold. The difference between these two warm runs shows
+run-to-run tail variation, but no host telemetry was captured to isolate its cause.
+
+The k6 generator and API shared the local Windows host. During the 500-VU run, 387 requests were refused;
+the API health check passed afterward. RAM/CPU usage was not captured, so local resource or connection
+pressure is plausible but not proven to be a memory issue. A dedicated-server run may perform differently,
+but has not been measured. Historical full-seed runs below use a measured 10,078-team database and a
+1,000-request warm-up, while the current database size was not audited. The historical 3.43 ms warm result
+was a hot-URL run on a smaller 2,039-team dataset.
 
 Full terminal, HTML, and JSON artifacts are linked in the [proof index](proof/README.md). The 500-VU result
 is a documented limit, not a pass.
