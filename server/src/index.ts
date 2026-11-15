@@ -218,16 +218,15 @@ export async function buildApp() {
 }
 
 export async function startServer() {
-  const app = await buildApp();
-
   try {
-    // Auto-run schema migrations to ensure database tables are created
-    try {
-      await runMigrations();
-    } catch (migErr: any) {
-      console.warn('[Startup] Migration notice:', migErr.message);
-    }
+    await runMigrations();
+  } catch (err) {
+    console.error('[Startup] Database migrations failed; refusing to start:', err);
+    process.exit(1);
+  }
 
+  const app = await buildApp();
+  try {
     // Start SSE listener
     await realtimeHub.startListener();
 
@@ -236,7 +235,7 @@ export async function startServer() {
   await app.listen({ port: config.port, host: config.host, backlog: 4096 });
     console.log(`[Fastify] Server listening on http://${config.host}:${config.port}`);
   } catch (err) {
-    app.log.error(err);
+    console.error('[Startup] Failed to start server:', err);
     process.exit(1);
   }
 
