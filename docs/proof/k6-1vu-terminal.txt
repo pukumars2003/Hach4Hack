@@ -1,0 +1,93 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: scripts/load-test.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 1 max VUs, 45s max duration (incl. graceful stop):
+              * board_requirement: 1 looping VUs for 15s (exec: boardRead, gracefulStop: 30s)
+
+
+running (01.0s), 1/1 VUs, 6 complete and 0 interrupted iterations
+board_requirement   [   7% ] 1 VUs  01.0s/15s
+
+running (02.0s), 1/1 VUs, 25 complete and 0 interrupted iterations
+board_requirement   [  13% ] 1 VUs  02.0s/15s
+
+running (03.0s), 1/1 VUs, 42 complete and 0 interrupted iterations
+board_requirement   [  20% ] 1 VUs  03.0s/15s
+
+running (04.0s), 1/1 VUs, 61 complete and 0 interrupted iterations
+board_requirement   [  27% ] 1 VUs  04.0s/15s
+
+running (05.0s), 1/1 VUs, 79 complete and 0 interrupted iterations
+board_requirement   [  33% ] 1 VUs  05.0s/15s
+
+running (06.0s), 1/1 VUs, 97 complete and 0 interrupted iterations
+board_requirement   [  40% ] 1 VUs  06.0s/15s
+
+running (07.0s), 1/1 VUs, 115 complete and 0 interrupted iterations
+board_requirement   [  47% ] 1 VUs  07.0s/15s
+
+running (08.0s), 1/1 VUs, 133 complete and 0 interrupted iterations
+board_requirement   [  53% ] 1 VUs  08.0s/15s
+
+running (09.0s), 1/1 VUs, 152 complete and 0 interrupted iterations
+board_requirement   [  60% ] 1 VUs  09.0s/15s
+
+running (10.0s), 1/1 VUs, 170 complete and 0 interrupted iterations
+board_requirement   [  67% ] 1 VUs  10.0s/15s
+
+running (11.0s), 1/1 VUs, 188 complete and 0 interrupted iterations
+board_requirement   [  73% ] 1 VUs  11.0s/15s
+
+running (12.0s), 1/1 VUs, 206 complete and 0 interrupted iterations
+board_requirement   [  80% ] 1 VUs  12.0s/15s
+
+running (13.0s), 1/1 VUs, 224 complete and 0 interrupted iterations
+board_requirement   [  87% ] 1 VUs  13.0s/15s
+
+running (14.0s), 1/1 VUs, 242 complete and 0 interrupted iterations
+board_requirement   [  93% ] 1 VUs  14.0s/15s
+
+running (15.0s), 1/1 VUs, 261 complete and 0 interrupted iterations
+board_requirement   [ 100% ] 1 VUs  15.0s/15s
+
+================================================================================
+TEAMFORGE LOAD TEST SUMMARY  ·  MIX run
+================================================================================
+Target:            http://localhost:3000/api/teams?limit=20
+Load:              1 VUs · think time 50 ms · 15s
+Cache mode:        WARM (hot URL — served from the in-process response cache)
+
+Requests:          262 total (262 measured + 0 warm-up)
+Throughput:        17 req/s (k6 rate; includes warm-up window)
+Error rate:        0.00%
+
+Latency (measured scenario requests only):
+  p50 1.02 ms · avg 3.94 ms · p90 6.28 ms · p95 8.92 ms · p99 21.85 ms
+  min <0.01 ms (14 req) (k6 zero-floor artifact) · max 402.64 ms
+
+Cache:             HIT 211 · MISS 49 · STALE 2 (80.53% hit ratio)
+Phase p50/p95:     waiting 1.00 ms/8.90 ms · blocked 0.00 ms/0.00 ms · connecting 0.00 ms/0.00 ms
+  (waiting = sent -> first byte, mostly server; blocked/connecting = client-side)
+Assertions:        524 passed / 0 failed of 524 (100.00%)
+  · board 200 OK:            262
+  · has teams array:         262
+
+Pass/fail line:    p95 < 200 ms (organizer spec) -> PASS (8.92 ms)
+Internal goal:     p95 < 30 ms (our own target, not a submission gate) -> met
+Client ceiling:    ~20 req/s at 1 VUs (1000 / (p50 1.02 ms + 50 ms think time) x 1)
+                   Measured req/s is limited by the k6 think time, not by server capacity.
+================================================================================
+
+running (15.1s), 0/1 VUs, 262 complete and 0 interrupted iterations
+board_requirement ✓ [ 100% ] 1 VUs  15s
+
+Process exit code: 0

@@ -52,7 +52,7 @@ export function LiveBoard({
             <div className="font-bold text-[15px] flex items-center gap-2">
               <span>Browsing as Guest</span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-lime text-charcoal font-bold uppercase">
-                10k Participants Ready
+                50k Participants Ready
               </span>
             </div>
             <p className="text-xs text-neutral-300 mt-1 leading-relaxed">

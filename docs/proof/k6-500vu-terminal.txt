@@ -1,0 +1,22 @@
+Grafana k6 v2.1.0 - local run 2026-11-15
+Target: http://localhost:3000/api/teams?limit=20
+Scenario: realistic mix, 500 VUs, 15 seconds, 50 ms think time, WARMUP=0
+
+Requests: 24,258
+Throughput: 1,516 req/s
+HTTP request error rate: 1.60% (387 failed requests)
+Latency p50: 102.52 ms
+Latency p90: 210.61 ms
+Latency p95: 272.41 ms
+Latency p99: 388.85 ms
+Cache hit ratio: 81.52%
+Assertions: 47,742 passed / 774 failed of 48,516
+
+Organizer thresholds:
+  p95 < 200 ms: FAIL
+  HTTP request error rate < 1%: FAIL
+k6 process exit code: 99
+
+The failed requests included connection-refused errors during the run. The API health check passed after
+the run. The verbose console transcript is retained in the ignored .local-only/proof-raw folder; the
+machine-readable metrics and generated HTML report are alongside this file.

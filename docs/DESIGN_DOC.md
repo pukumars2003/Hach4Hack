@@ -13,7 +13,7 @@ The data model is engineered so that correctness is guaranteed at the database e
   - `CHECK (member_count >= 0 AND member_count <= max_members)`
   - `UNIQUE (hackathon_id, name)`
 - **`team_members`**: The primary invariant enforcer.
-  - `UNIQUE (hackathon_id, user_id)`: **Mathematically guarantees that no user can belong to two teams simultaneously**, even across concurrent requests.
+  - `UNIQUE (hackathon_id, user_id)`: Guarantees that no user can belong to two teams in the same hackathon, even across concurrent requests.
 - **`join_requests`**: Filtered partial index `UNIQUE (team_id, user_id) WHERE status = 'pending'` prevents duplicate pending requests.
 - **`invite_codes`**: 60-bit Crockford Base32 (`ABCD-EFGH-JKMN`). Only `SHA-256(code)` is stored with `expires_at` evaluated against database `clock_timestamp()`.
 - **`audit_logs`**: Append-only log with a PostgreSQL trigger `BEFORE UPDATE OR DELETE` raising an exception. Deliberately has no foreign key to `teams` so history survives team deletion.
@@ -23,7 +23,7 @@ The data model is engineered so that correctness is guaranteed at the database e
 
 ### 2. How Races Are Prevented (The Mathematical Proof)
 
-When 50 (or 250) users simultaneously click "Join" for the 1 remaining seat:
+The automated concurrency test sends 50 simultaneous requests for the last seat. The browser race lab also supports larger runs up to 250 racers:
 
 ```sql
 UPDATE teams 
@@ -32,7 +32,7 @@ WHERE id = $1 AND member_count < max_members
 RETURNING member_count;
 ```
 
-1. **Row Serialization**: In PostgreSQL `READ COMMITTED`, the first transaction to reach the team row acquires an exclusive row-level lock. All other 249 transactions queue on this row.
+1. **Row Serialization**: In PostgreSQL `READ COMMITTED`, the first transaction to reach the team row acquires an exclusive row-level lock. Other requests for that team wait on the row.
 2. **Post-Commit Statement Re-Evaluation**: When Transaction 1 commits, PostgreSQL releases the lock. Waiters sequentially re-evaluate the query’s `WHERE` clause against the **newly committed state**.
 3. **Guaranteed Rejection**: Since Transaction 1 incremented `member_count` to 4, the predicate `member_count < 4` evaluates to `FALSE` for all subsequent transactions. The query matches **0 rows**, throwing `409 team_full`.
 4. **Cross-Team Join Race Defense**: If a user attempts to join Team A and Team B simultaneously, two transactions run in parallel. The second to insert into `team_members` violates `UNIQUE (hackathon_id, user_id)` and triggers an automatic rollback, which **reverts the loser team's member count increment**.
@@ -54,7 +54,7 @@ RETURNING member_count;
 ### 4. What We Would Do With One More Week
 
 1. **Read-Replica Horizontal Scaling**: Introduce transaction-mode connection poolers (PgBouncer) for queries, routing writes to primary and reads to replicas with an out-of-band SSE listener sidecar.
-2. **Per-team in-process queue**: During a 250-way race up to 90 pool connections can sit blocked on one team's row lock, and board reads queue behind them. A small per-team async queue in front of the guarded `UPDATE` keeps one backend per team without weakening the database as the authority.
+2. **Per-team admission queue**: Evaluate this if higher-concurrency load tests show database connections queuing on one team's row. PostgreSQL remains the authority for capacity.
 3. **Trigram index for board search**: `search` uses a leading-wildcard `ILIKE` and is a 57 ms sequential scan at 10,078 teams (the default keyset page is 0.95 ms). A `pg_trgm` GIN index on `name`/`description` would make it an index scan.
 4. **Vector Similarity Matching (`pgvector`)**: Replace heuristic Jaccard scoring with dense embeddings for candidate bios and project briefs to discover non-obvious skill alignments.
 5. **Consensus Team Expansion Protocol**: A multi-member in-app voting mechanism allowing teams to collectively vote to expand capacity beyond standard thresholds.

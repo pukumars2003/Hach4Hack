@@ -1,0 +1,67 @@
+{
+  "mode": "mix",
+  "vus": 1,
+  "thinkTimeMs": 50,
+  "duration": "15s",
+  "metrics": {
+    "reqs": 262,
+    "measured": 262,
+    "failRatePct": 0,
+    "board200": 262,
+    "teamsArray": 262,
+    "failures": 0,
+    "assertions": 524,
+    "assertionPass": 524,
+    "assertionRate": 100,
+    "hits": 211,
+    "misses": 49,
+    "stales": 2,
+    "bypass": 0,
+    "cacheLookups": 262,
+    "hitRatio": 80.53435114503816,
+    "cacheDisabled": false,
+    "maxVus": 1,
+    "runSeconds": 15.050265900000001,
+    "subHundredth": 14,
+    "main": {
+      "avg": 3.943902290076334,
+      "min": 0,
+      "med": 1.0193,
+      "max": 402.6353,
+      "p90": 6.27697,
+      "p95": 8.924044999999982,
+      "p99": 21.851369999999974
+    },
+    "cold": null,
+    "warm": null,
+    "phases": {
+      "waiting": {
+        "avg": 3.713645419847325,
+        "min": 0,
+        "med": 1.00205,
+        "max": 399.668,
+        "p90": 6.05187,
+        "p95": 8.902964999999977,
+        "p99": 21.49046399999999
+      },
+      "blocked": {
+        "avg": 0.8361366412213741,
+        "min": 0,
+        "med": 0,
+        "max": 219.0678,
+        "p90": 0,
+        "p95": 0,
+        "p99": 0
+      },
+      "connecting": {
+        "avg": 0.017224809160305343,
+        "min": 0,
+        "med": 0,
+        "max": 4.5129,
+        "p90": 0,
+        "p95": 0,
+        "p99": 0
+      }
+    }
+  }
+}

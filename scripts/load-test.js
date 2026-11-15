@@ -20,6 +20,8 @@
  *   COMPARE=true     runs the cold scenario first, then the warm scenario, and
  *                    reports both side by side.
  *   SCENARIO=stress  legacy ramping 100 -> 500 VU board read plus join race.
+ *   REPORT_PREFIX    writes HTML and JSON to <prefix>.html / <prefix>.json
+ *                    instead of replacing the default report paths.
  */
 
 import http from 'k6/http';
@@ -82,6 +84,7 @@ const THINK_TIME_S = parseFloat(__ENV.THINK_TIME || '0.05');
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
 const VUS = parseInt(__ENV.VUS || (__ENV.SCENARIO === 'stress' ? '100' : '100'), 10);
 const DURATION = __ENV.DURATION || '15s';
+const REPORT_PREFIX = __ENV.REPORT_PREFIX || '';
 const summaryTrendStats = ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'];
 
 // The URL under test. In cold mode every iteration appends a unique filter
@@ -905,8 +908,8 @@ function compareRow(label, coldValue, warmValue, strong) {
 
 export function handleSummary(data) {
   return {
-    'docs/load-test-report.html': generateHtmlReport(data),
-    'docs/load-test-runs/last-run.json': JSON.stringify({ mode: MODE, vus: VUS, thinkTimeMs: THINK_TIME_S * 1000, duration: DURATION, metrics: extract(data) }, null, 2),
+    [REPORT_PREFIX ? `${REPORT_PREFIX}.html` : 'docs/load-test-report.html']: generateHtmlReport(data),
+    [REPORT_PREFIX ? `${REPORT_PREFIX}.json` : 'docs/load-test-runs/last-run.json']: JSON.stringify({ mode: MODE, vus: VUS, thinkTimeMs: THINK_TIME_S * 1000, duration: DURATION, metrics: extract(data) }, null, 2),
     stdout: generateConsoleSummary(data),
   };
 }

@@ -8,6 +8,32 @@
 **Cache:** 5 s pre-serialized HTTP response cache + 30 s stale-while-revalidate, over a 1 s single-flight DB coalescer with version-guarded invalidation  
 **Interactive report:** [docs/load-test-report.html](load-test-report.html) · raw run JSON: [docs/load-test-runs/last-run.json](load-test-runs/last-run.json)
 
+> The full-seed measurements below are a historical snapshot. The fresh local VU ladder run on 2026-11-15
+> is recorded separately in the [k6 proof folder](proof/README.md): 1, 100, and 250 VUs met the 200 ms
+> p95 line; 500 VUs did not.
+
+## Fresh Local k6 Proof (2026-11-15)
+
+Runs used Grafana k6 2.1.0, a 15-second realistic mix, and no setup warm-up traffic. The current local
+database row count was not separately measured for these runs. The k6 generator and API shared the local
+Windows host; 387 requests were refused during the 500-VU run. RAM and CPU telemetry was not captured, so
+memory pressure is plausible but not proven. A dedicated-server run may differ, but has not been measured.
+
+The historical full-seed realistic-mix runs below use broadly the same traffic shape, but have a measured
+10,078-team dataset and a 1,000-request setup warm-up; this local ladder disabled setup warm-up and did not
+re-audit the dataset size. Host conditions also differ. The historical 3.43 ms p95 result was a warm-cache
+run on the smaller 2,039-team dataset, so it is a different hot-URL workload from this mixed run.
+
+| VUs | Requests | p95 | Errors | Result |
+| ---: | ---: | ---: | ---: | :---: |
+| 1 | 262 | 8.92 ms | 0.00% | Pass |
+| 100 | 12,359 | 95.68 ms | 0.00% | Pass |
+| 250 | 24,728 | 183.35 ms | 0.00% | Pass |
+| 500 | 24,258 | 272.41 ms | 1.60% | Fail |
+
+Full terminal, HTML, and JSON artifacts are linked in the [proof index](proof/README.md). The 500-VU result
+is a documented limit, not a pass.
+
 ---
 
 ## 1. Executive Summary
@@ -19,12 +45,12 @@ Three traffic shapes are measured at the full 10,078-team seed on this host:
 
 | Shape | What it is | p50 | p95 | req/s | Errors | Cache hit |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Realistic mix (headline)** | 80% default first page + 20% random filters/cursors/search | 17–28 ms | **83–179 ms** ✅ | 597–773 | 0.00–0.13% | 80.3–80.9% |
-| Warm (cache hit) | every VU re-requests one hot URL | 5.53 ms | **88.21 ms** ✅ | 1,036 | 0.00% | 99.87% |
-| Warm, 250 VUs (2.5× ladder step) | same hot URL at 250 VUs | 60.09 ms | **182.15 ms** ✅ | 1,759 | 0.00% | 99.35% |
-| Cold, pool 20 | `BOARD_CACHE_DISABLED=1`, `PG_POOL_MAX=20` | 87.76 ms | **202.46 ms** ❌ (just over) | 471 | 0.00% | 0% |
-| Cold, pool 40 | same, `PG_POOL_MAX=40` | 71.26 ms | **220.91 ms** ❌ (just over) | 417 | 0.00% | 0% |
-| Cold, pool 90 | same, `PG_POOL_MAX=90` | 33.55 ms | **101.89 ms** ✅ | 547 | 0.03% (3 timeouts) | 0% |
+| **Realistic mix (headline)** | 80% default first page + 20% random filters/cursors/search | 17–28 ms | **83–179 ms** | 597–773 | 0.00–0.13% | 80.3–80.9% |
+| Warm (cache hit) | every VU re-requests one hot URL | 5.53 ms | **88.21 ms** | 1,036 | 0.00% | 99.87% |
+| Warm, 250 VUs (2.5× ladder step) | same hot URL at 250 VUs | 60.09 ms | **182.15 ms** | 1,759 | 0.00% | 99.35% |
+| Cold, pool 20 | `BOARD_CACHE_DISABLED=1`, `PG_POOL_MAX=20` | 87.76 ms | **202.46 ms** (just over target) | 471 | 0.00% | 0% |
+| Cold, pool 40 | same, `PG_POOL_MAX=40` | 71.26 ms | **220.91 ms** (over target) | 417 | 0.00% | 0% |
+| Cold, pool 90 | same, `PG_POOL_MAX=90` | 33.55 ms | **101.89 ms** | 547 | 0.03% (3 timeouts) | 0% |
 
 At 100 VUs the mix and warm shapes pass the 200 ms line on this host. The cold path is at the line with a
 20–40 connection pool; a 90-connection pool is faster when it works but produced connection timeouts under
@@ -251,7 +277,8 @@ it, and be handed the pre-write board even though that result is never cached. T
 keyed by `query@version`; a post-write caller starts a fresh query instead of joining the old one. The old
 promise still resolves, but its result is discarded by the version check and cannot repopulate the cache.
 
-Covered by four tests (the suite is now 33 tests):
+The latest local automated suite has 39 tests across five files. The benchmark results in this report are
+historical measurements; this test-count update does not imply the load runs were repeated:
 
 - **`server/tests/cache/singleFlight.test.ts`** — unit tests: concurrent callers at the same version still
   coalesce; a caller that arrives after `invalidate()` runs its own query and gets the post-write value; the
@@ -337,8 +364,9 @@ k6 run -e VUS=250 -e DURATION=15s scripts/load-test.js
 k6 run -e COMPARE=true scripts/load-test.js
 ```
 
-Every run rewrites `docs/load-test-report.html` and `docs/load-test-runs/last-run.json`, and prints the
-mode, the cache hit ratio, the phase breakdown and the reconciliation line.
+By default, a run rewrites `docs/load-test-report.html` and `docs/load-test-runs/last-run.json`. Set
+`REPORT_PREFIX` (for example, `docs/proof/k6-100vu`) to write run-specific HTML and JSON files instead.
+The terminal output reports the mode, cache hit ratio, phase breakdown, and request reconciliation.
 
 **What still needs a second machine:** the 500 VU number, and a clean cold number. On one 4-core laptop the
 load generator and the server compete for the same cores; the phase breakdown in §4f is how you can tell.
@@ -384,6 +412,6 @@ kept as the low end of the spread; they are not comparable to the full-seed numb
 | 5 | 22,253 | 2.60 ms | 36.51 ms | 79.40 ms | 1,481 |
 | 6 | 15,453 | 16.95 ms | 111.37 ms | 231.35 ms | 918 |
 
-`docs/load-test-report.html` always holds the most recent run and states its own cache mode, so it can be
-compared against this table rather than mistaken for a canonical figure. For a single authoritative set —
-warm, mix, cold, and 500 VUs with k6 on a second machine — run the commands in §6 on a quiet Linux host.
+When using the default output paths, `docs/load-test-report.html` holds the most recent run and states its
+cache mode. Runs with `REPORT_PREFIX` leave that default report untouched. For a second-machine comparison,
+run the commands in §6 on a quiet Linux host.

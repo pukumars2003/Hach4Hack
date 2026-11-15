@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TeamForge — High-Concurrency Load Test Report</title>
+  <style>
+    :root {
+      --pine: #12302D;
+      --teal: #0F766E;
+      --mint: #5EEAD4;
+      --canvas: #F6F5F1;
+      --surface: #FFFFFF;
+      --charcoal: #16181D;
+      --muted: #64748B;
+      --border: #E2E8F0;
+      --pass: #059669;
+      --pass-bg: #ECFDF5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--canvas);
+      color: var(--charcoal);
+      line-height: 1.5;
+      padding: 32px 16px;
+    }
+    .container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+    .header {
+      background: var(--pine);
+      color: #F8FAFC;
+      border-radius: 16px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 10px 25px -5px rgba(18, 48, 45, 0.2);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--mint); color: var(--pine);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 18px;
+    }
+    .title { font-size: 26px; font-weight: 800; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 9999px;
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      background: var(--mint); color: var(--pine);
+    }
+    .badge-cool { background: #FDE68A; color: #78350F; }
+    .status-banner {
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      color: #DC2626;
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .card-label { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
+    .card-value { font-size: 30px; font-weight: 800; color: var(--charcoal); }
+    .card-sub { font-size: 12px; color: var(--muted); }
+    .card-accent { color: var(--teal); }
+    .card-pass { color: var(--pass); }
+
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .section-title { font-size: 18px; font-weight: 800; color: var(--pine); }
+    .note { font-size: 13px; color: var(--muted); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--border); color: var(--muted); font-size: 12px; text-transform: uppercase; }
+    td { padding: 12px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .bar-bg { width: 100%; height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--teal); border-radius: 4px; }
+    .footer { text-align: center; font-size: 12px; color: var(--muted); margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand">
+        <div class="logo">T</div>
+        <div class="title">TeamForge Load Test Report</div>
+        <span class="badge ">mix run</span>
+      </div>
+      <p style="color: #CBD5E1; font-size: 14px;">
+        500 virtual users · 50 ms think time · 15s per scenario ·
+        PostgreSQL 16 READ COMMITTED with B-Tree keyset pagination, single-flight DB coalescing, and an
+        in-process HTTP response cache with stale-while-revalidate.
+      </p>
+    </div>
+
+    <div class="status-banner">
+      <span>✗ ORGANIZER THRESHOLD FAILED — pass/fail line: p95 &lt; 200 ms</span>
+      <span>p95 272.41 ms</span>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <span class="card-label">p95 Latency</span>
+        <span class="card-value ">272.41 <span style="font-size: 16px;">ms</span></span>
+        <span class="card-sub">above our own 30 ms goal · pass line 200 ms</span>
+      </div>
+      <div class="card">
+        <span class="card-label">Throughput</span>
+        <span class="card-value card-accent">1,516 <span style="font-size: 16px;">req/s</span></span>
+        <span class="card-sub">24,258 requests total · 24,258 measured + 0 warm-up</span>
+      </div>
+      <div class="card">
+        <span class="card-label">Error Rate</span>
+        <span class="card-value ">1.60%</span>
+        <span class="card-sub">387 of 24,258 requests</span>
+      </div>
+      <div class="card">
+        <span class="card-label">Cache Hit Ratio</span>
+        <span class="card-value">81.52%</span>
+        <span class="card-sub">HIT 19,774 · MISS 4,484 · STALE 0</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">Latency Distribution (measured requests)</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Percentile</th>
+            <th>Duration</th>
+            <th>Visual Range</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+                    <tr>
+            <td><strong>Median (p50)</strong></td>
+            <td class="mono">102.52 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 51.261425%"></div></div></td>
+            <td><span style="color: #B45309; font-weight: 700;">Above goal</span></td>
+          </tr>
+                    <tr>
+            <td><strong>Average</strong></td>
+            <td class="mono">121.14 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 60.56993227595032%"></div></div></td>
+            <td><span style="color: #B45309; font-weight: 700;">Above goal</span></td>
+          </tr>
+                    <tr>
+            <td><strong>p90</strong></td>
+            <td class="mono">210.61 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 100%"></div></div></td>
+            <td><span style="color: #B45309; font-weight: 700;">Above goal</span></td>
+          </tr>
+          <tr style="background: #F8FAFC;">
+            <td><strong>p95 (organizer pass line: &lt; 200 ms)</strong></td>
+            <td class="mono" style="color: #DC2626; font-weight: 800;">272.41 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 100%; background: #DC2626;"></div></div></td>
+            <td><span style="color: #DC2626; font-weight: 800;">✗ FAIL</span></td>
+          </tr>
+                    <tr>
+            <td><strong>p99</strong></td>
+            <td class="mono">388.85 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 100%"></div></div></td>
+            <td><span style="color: #B45309; font-weight: 700;">Above goal</span></td>
+          </tr>
+          <tr>
+            <td><strong>Min / Max</strong></td>
+            <td class="mono">&lt;0.01 ms (389 req) / 4612.28 ms</td>
+            <td><div class="bar-bg"><div class="bar-fill" style="width: 100%; background: #94A3B8;"></div></div></td>
+            <td><span style="color: var(--muted);">Bounded</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note">
+        Minimum: k6 quantizes sub-timer-resolution responses to an exact
+        <span class="mono">0</span>, so this column prints <span class="mono">&lt;0.01 ms</span> with the count of
+        affected requests (389 of 24,258) rather than a literal
+        <span class="mono">0.00 ms</span>; a zero minimum here is a timer artifact, not a doctored number.
+        The p50 (102.52 ms) is the
+        meaningful lower bound for a served response.
+        
+      </p>
+    </div>
+
+    
+
+    <div class="section-card">
+      <div class="section-title">Validation Checks &amp; Data Invariants</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Invariant / Check</th>
+            <th>Passes</th>
+            <th>Fails</th>
+            <th>Success Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Board Status 200 OK</strong></td>
+            <td class="mono">23,871</td>
+            <td class="mono">387</td>
+            <td><span style="color: var(--pass); font-weight: 700;">98.40%</span></td>
+          </tr>
+          <tr>
+            <td><strong>Payload Structure (Has Teams Array)</strong></td>
+            <td class="mono">23,871</td>
+            <td class="mono">387</td>
+            <td><span style="color: var(--pass); font-weight: 700;">98.40%</span></td>
+          </tr>
+          <tr>
+            <td><strong>Total Assertions</strong> (2 per measured request)</td>
+            <td class="mono">47,742</td>
+            <td class="mono">774</td>
+            <td><span style="color: #DC2626; font-weight: 800;">98.40%</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note">
+        Measured requests: 24,258 (24,258 total minus 0 warm-up
+        requests, which k6 counts in <span class="mono">http_reqs</span> but which run no assertions).
+        Assertion total 48,516 = 2 × 24,258.
+      </p>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">Methodology Notes</div>
+      <p class="note">
+        <strong>Pass/fail line:</strong> p95 &lt; 200 ms, the organizer specification.
+        30 ms is our own engineering goal and is reported for information only.<br>
+        <strong>Throughput is client-limited:</strong> each virtual user sleeps 50 ms
+        between requests, so 500 VUs can issue at most
+        ~3,278 req/s at the measured p50. The reported req/s is not a
+        server capacity measurement.<br>
+        <strong>Cache disclosure:</strong> the cold scenario bypassed the response cache; the warm scenario was served from it (HIT 19,774 / MISS 4,484 / STALE 0).<br>
+        <strong>Warm-up:</strong> 0 requests before the measurement window, excluded from all latency percentiles.<br>
+        <strong>Phase breakdown (p50 / p95):</strong> waiting 99.56 ms / 258.26 ms,
+        blocked 0.00 ms / 0.00 ms,
+        connecting 0.00 ms / 0.00 ms. "waiting" is request-sent to first byte
+        (mostly server time); "blocked" and "connecting" are client-side costs.
+      </p>
+    </div>
+
+    <div class="footer">
+      Generated automatically by k6 · TeamForge Concurrency Engine · PS1 Hackathon 2026
+    </div>
+  </div>
+</body>
+</html>

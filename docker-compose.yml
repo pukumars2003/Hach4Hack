@@ -27,6 +27,11 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://postgres:postgres@db:5432/team_formation
       JWT_SECRET: production-race-proof-jwt-secret-2026
+      ADMIN_USERNAME: adminbro
+      ADMIN_PASSWORD: DemoAdmin#2026
+      SEED_DEMO_DATA: "true"
+      SEED_USERS: "50000"
+      SEED_TEAMS: "10000"
     ports:
       - "3000:3000"
     depends_on:
