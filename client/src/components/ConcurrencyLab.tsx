@@ -207,15 +207,15 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
       {/* Summary Scorecard */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in duration-300">
-          <div className="p-4 rounded-xl bg-[#DCF3E4] border border-[#86EFAC] flex flex-col justify-between">
-            <div className="text-xs font-bold text-[#14532D] uppercase tracking-wider flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-[#14532D]" />
+          <div className="p-4 rounded-xl bg-lime/30 border border-lime flex flex-col justify-between">
+            <div className="text-xs font-bold text-charcoal uppercase tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-charcoal" />
               <span>Claimed Seat</span>
             </div>
-            <div className="text-3xl font-black font-mono text-[#14532D] mt-2">
-              {stats.wins} <span className="text-xs font-sans font-medium text-[#14532D]">Winner</span>
+            <div className="text-3xl font-black font-mono text-charcoal mt-2">
+              {stats.wins} <span className="text-xs font-sans font-medium text-charcoal">Winner</span>
             </div>
-            <div className="text-[11px] text-[#14532D] mt-1">
+            <div className="text-[11px] text-charcoal mt-1">
               {stats.wins === 1 ? '✅ Exactly 1 Winner' : '❌ Race Condition!'}
             </div>
           </div>
@@ -235,7 +235,7 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
 
           <div className="p-4 rounded-xl bg-canvas border border-cardBorder flex flex-col justify-between">
             <div className="text-xs font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-teal" />
+              <ShieldCheck className="w-4 h-4 text-charcoal" />
               <span>5xx Errors</span>
             </div>
             <div className="text-3xl font-black font-mono text-charcoal mt-2">
@@ -277,7 +277,7 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
                 <div
                   key={r.id}
                   className={`p-3 flex items-center justify-between text-xs transition-colors ${
-                    isWinner ? 'bg-[#DCF3E4]/40' : 'bg-white hover:bg-canvas/40'
+                    isWinner ? 'bg-lime/10' : 'bg-white hover:bg-canvas/40'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -294,7 +294,7 @@ export function ConcurrencyLab({ hackathonId }: { hackathonId: string }) {
                     <span
                       className={`px-2.5 py-0.5 rounded-full font-mono text-[11px] font-bold ${
                         isWinner
-                          ? 'bg-[#DCF3E4] text-[#14532D]'
+                          ? 'bg-lime/35 text-charcoal'
                           : isConflict
                           ? 'bg-[#FDEBC8] text-[#7A3E00]'
                           : 'bg-red-100 text-danger'

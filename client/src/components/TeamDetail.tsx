@@ -145,8 +145,8 @@ export function TeamDetail({
     ? `Ready · ${team.members.length} of ${team.max_members} seats`
     : `Forming · ${team.members.length} of ${team.max_members} seats`;
 
-  const statusBg = isFull ? 'bg-[#E8E6DE]' : isReady ? 'bg-[#DCF3E4]' : 'bg-[#FDEBC8]';
-  const statusFg = isFull ? 'text-[#33373E]' : isReady ? 'text-[#14532D]' : 'text-[#7A3E00]';
+  const statusBg = isFull ? 'bg-neutral-100' : isReady ? 'bg-lime/35' : 'bg-[#FDEBC8]';
+  const statusFg = isFull || isReady ? 'text-charcoal' : 'text-[#7A3E00]';
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-8 flex flex-col gap-6">
@@ -194,7 +194,7 @@ export function TeamDetail({
               {team.needed_skills && team.needed_skills.map((sk) => (
                 <span
                   key={sk}
-                  className="text-[13px] px-2.5 py-1 rounded-[8px] bg-[#FDEBC8] text-[#7A3E00] font-medium"
+                  className="text-[13px] px-2.5 py-1 rounded-lg bg-lime/30 text-charcoal font-medium"
                 >
                   Wanted: {sk}
                 </span>
@@ -304,7 +304,7 @@ export function TeamDetail({
                 <button
                   onClick={handleRenewInvite}
                   disabled={isRenewingCode}
-                  className="flex-1 h-10 border border-[#8FB0AA] rounded-lg bg-transparent text-[#F3F1EA] hover:bg-white/10 font-semibold text-[14px] transition-colors disabled:opacity-50"
+                  className="flex-1 h-10 border border-neutral-600 rounded-lg bg-transparent text-neutral-100 hover:bg-white/10 font-semibold text-[14px] transition-colors disabled:opacity-50"
                 >
                   {isRenewingCode ? 'Renewing...' : 'Revoke & renew'}
                 </button>
