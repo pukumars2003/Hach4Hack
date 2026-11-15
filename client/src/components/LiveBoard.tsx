@@ -56,7 +56,7 @@ export function LiveBoard({
               </span>
             </div>
             <p className="text-xs text-[#C9D8D5] mt-1">
-              Sign in with demo credentials (<span className="font-mono text-white">user40000</span> / <span className="font-mono text-white">Demo@12345</span>) to create teams, accept requests, or take the last seat.
+              Sign in with demo credentials (<span className="font-mono text-white">user00001</span> / <span className="font-mono text-white">Demo@12345</span>) to create teams, accept requests, or take the last seat.
             </p>
           </div>
           {onOpenAuth && (

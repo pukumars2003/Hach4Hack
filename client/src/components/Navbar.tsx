@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut, User as UserIcon, Shield } from 'lucide-react';
 import { User } from '../types.js';
 
 interface NavbarProps {
@@ -13,6 +13,8 @@ interface NavbarProps {
   setActiveTab: (tab: 'board' | 'my-team' | 'suggestions' | 'lab') => void;
   hasTeam: boolean;
   onOpenAuth?: () => void;
+  isAdmin?: boolean;
+  onOpenAdmin?: () => void;
 }
 
 export function Navbar({
@@ -26,6 +28,8 @@ export function Navbar({
   setActiveTab,
   hasTeam,
   onOpenAuth,
+  isAdmin,
+  onOpenAdmin,
 }: NavbarProps) {
   const getInitials = (name?: string) => {
     if (!name) return '??';
@@ -109,6 +113,18 @@ export function Navbar({
             <span className="w-2 h-2 rounded-full bg-lime animate-pulse-soft inline-block" />
             <span>Live</span>
           </div>
+
+          {/* Admin dashboard */}
+          {isAdmin && onOpenAdmin && (
+            <button
+              onClick={onOpenAdmin}
+              title="Admin dashboard"
+              className="h-8 px-2.5 rounded-lg border border-neutral-700 text-neutral-300 hover:text-white hover:border-neutral-500 text-xs font-medium flex items-center gap-1.5 transition-colors"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Admin</span>
+            </button>
+          )}
 
           {/* Keyboard help */}
           <button

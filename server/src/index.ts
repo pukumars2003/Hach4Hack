@@ -14,6 +14,7 @@ import { teamRoutes } from './routes/teams.js';
 import { requestRoutes } from './routes/requests.js';
 import { suggestionRoutes } from './routes/suggestions.js';
 import { auditRoutes } from './routes/audit.js';
+import { adminRoutes } from './routes/admin.js';
 import { sseRoutes } from './routes/sse.js';
 import { installBoardHttpCache } from './middleware/httpCache.js';
 
@@ -209,6 +210,7 @@ export async function buildApp() {
   await app.register(requestRoutes, { prefix: '/api/requests' });
   await app.register(suggestionRoutes, { prefix: '/api/teams' });
   await app.register(auditRoutes, { prefix: '/api/audit' });
+  await app.register(adminRoutes, { prefix: '/api/admin' });
   await app.register(sseRoutes, { prefix: '/api/realtime' });
 
   // 7. Serve cached board reads straight from the HTTP layer (in-process edge cache)

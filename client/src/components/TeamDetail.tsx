@@ -34,7 +34,7 @@ export function TeamDetail({
     // Load audit logs
     api.getAuditLogs({ teamId: team.id, limit: 10 })
       .then((res) => {
-        if (!cancelled && res.logs) setAuditLogs(res.logs);
+        if (!cancelled && Array.isArray(res)) setAuditLogs(res);
       })
       .catch(() => {});
 

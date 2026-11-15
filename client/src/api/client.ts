@@ -1,4 +1,4 @@
-import { User, Team, TeamDetail, Suggestion } from '../types.js';
+import { User, Team, TeamDetail, Suggestion, AdminUser, AdminStats } from '../types.js';
 
 // Empty in local/same-origin deployments (relative `/api`). Set
 // VITE_API_BASE_URL to the API origin when the client is deployed separately
@@ -129,11 +129,27 @@ export const api = {
     apiRequest<{ teamId: string; suggestions: Suggestion[] }>(`/teams/${teamId}/suggestions`),
 
   // Audit Logs
-  getAuditLogs: (query: { teamId?: string; limit?: number }) => {
+  getAuditLogs: (query: { teamId?: string; hackathonId?: string; limit?: number }) => {
     const searchParams = new URLSearchParams();
     if (query.teamId) searchParams.append('teamId', query.teamId);
+    if (query.hackathonId) searchParams.append('hackathonId', query.hackathonId);
     if (query.limit) searchParams.append('limit', String(query.limit));
-    return apiRequest<{ logs: any[] }>(`/audit?${searchParams.toString()}`);
+    return apiRequest<any[]>(`/audit?${searchParams.toString()}`);
+  },
+
+  // Admin
+  getAdminUsers: (query: { search?: string; limit?: number; offset?: number } = {}) => {
+    const searchParams = new URLSearchParams();
+    if (query.search) searchParams.append('search', query.search);
+    if (query.limit) searchParams.append('limit', String(query.limit));
+    if (query.offset) searchParams.append('offset', String(query.offset));
+    return apiRequest<{
+      users: AdminUser[];
+      total: number;
+      limit: number;
+      offset: number;
+      stats: AdminStats;
+    }>(`/admin/users?${searchParams.toString()}`);
   },
 };
 

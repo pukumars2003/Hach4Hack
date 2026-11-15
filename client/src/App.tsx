@@ -22,6 +22,7 @@ export function App() {
   const [userMembership, setUserMembership] = useState<any>(null);
   const [hackathons, setHackathons] = useState<any[]>([]);
   const [activeHackathonId, setActiveHackathonId] = useState<string>('');
+  const [view, setView] = useState<'app' | 'admin'>('app');
 
   const [activeTab, setActiveTab] = useState<'board' | 'my-team' | 'suggestions' | 'lab'>('board');
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -44,27 +45,32 @@ export function App() {
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
 
-  // Toast notification
+  // Toast / Status notification
   const [notification, setNotification] = useState<{ message: string; type?: 'alert' | 'info' | 'success' } | null>(null);
 
   const showToast = (message: string, type: 'alert' | 'info' | 'success' = 'info') => {
     setNotification({ message, type });
   };
 
-  const handleLogout = () => {
-    clearAuthToken();
-    setCurrentUser(null);
-    setUserMembership(null);
-    showToast('Signed out successfully.', 'info');
-  };
-
-  // Load hackathons (no auto-login — always require explicit sign-in)
+  // 1. Initial Load: hackathons + current user (if a token is present)
   const loadUserAndHackathons = useCallback(async () => {
     try {
       const hList = await api.getHackathons();
       setHackathons(hList);
       if (hList.length > 0) {
         setActiveHackathonId(hList[0].id);
+      }
+
+      if (getAuthToken()) {
+        try {
+          const me = await api.getMe();
+          setCurrentUser(me.user);
+          setUserMembership(me.membership);
+        } catch {
+          clearAuthToken();
+          setCurrentUser(null);
+          setUserMembership(null);
+        }
       }
     } catch {
       // fresh state
@@ -75,10 +81,11 @@ export function App() {
     loadUserAndHackathons();
   }, [loadUserAndHackathons]);
 
-  // Fetch board teams
+  // 2. Fetch Board Teams
   const fetchTeams = useCallback(async (reset: boolean = true) => {
     if (!activeHackathonId) return;
     setIsLoadingTeams(true);
+
     try {
       const queryParams: Record<string, any> = {
         hackathonId: activeHackathonId,
@@ -87,10 +94,12 @@ export function App() {
         status: statusFilter,
         skill: selectedSkill,
       };
+
       if (!reset && cursor) {
         queryParams.cursorCreatedAt = cursor.cursorCreatedAt;
         queryParams.cursorId = cursor.cursorId;
       }
+
       const res = await api.getTeams(queryParams);
       if (reset) {
         setTeams(res.teams);
@@ -110,7 +119,7 @@ export function App() {
     fetchTeams(true);
   }, [activeHackathonId, search, statusFilter, selectedSkill]);
 
-  // Fetch selected team details
+  // 3. Fetch Selected Team Details
   const fetchSelectedTeam = useCallback(async () => {
     if (!selectedTeamId) return;
     try {
@@ -130,7 +139,7 @@ export function App() {
     }
   }, [selectedTeamId, fetchSelectedTeam]);
 
-  // SSE for live updates
+  // 4. Real-time Server-Sent Events (SSE) Listener
   useSSE({
     hackathonId: activeHackathonId,
     teamId: selectedTeamId || undefined,
@@ -145,7 +154,7 @@ export function App() {
     },
   });
 
-  // Keyboard shortcuts
+  // 5. Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
@@ -154,6 +163,7 @@ export function App() {
         }
         return;
       }
+
       switch (e.key) {
         case 'j':
         case 'J':
@@ -191,13 +201,16 @@ export function App() {
           break;
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentUser, userMembership, selectedTeamId]);
 
+  // Handlers
   const handleLeaveTeam = async () => {
     if (!userMembership) return;
     if (!confirm('Are you sure you want to leave this team?')) return;
+
     try {
       const res = await api.leaveTeam(userMembership.team_id);
       showToast(res.message, 'info');
@@ -210,45 +223,176 @@ export function App() {
     }
   };
 
-  // ─── Auth gates ──────────────────────────────────────────────
-  // 1. No user logged in → show only the login modal
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-canvas">
-        <AuthModal
-          isOpen={true}
-          onClose={() => { }}
-          onLoginSuccess={(user: User) => {
-            setCurrentUser(user);
-            loadUserAndHackathons();
-            showToast(`Signed in as ${user.name}`, 'success');
-          }}
-        />
-      </div>
-    );
+  const handleLogout = () => {
+    clearAuthToken();
+    setCurrentUser(null);
+    setUserMembership(null);
+    setView('app');
+    showToast('Signed out successfully.', 'info');
+  };
+
+  // Admin view is only reachable for an authenticated admin.
+  if (view === 'admin' && currentUser?.role === 'admin') {
+    return <AdminDashboard onExit={() => setView('app')} onLogout={handleLogout} />;
   }
 
-  // 2. Logged-in admin → admin dashboard
-  if ((currentUser as any).role === 'admin') {
-    return <AdminDashboard onLogout={handleLogout} />;
-  }
-
-  // 3. Logged-in non-admin → access denied
   return (
-    <div className="min-h-screen flex items-center justify-center bg-canvas">
-      <div className="text-center animate-fade-in">
-        <div className="w-12 h-12 rounded-xl bg-charcoal text-lime flex items-center justify-center font-extrabold text-lg mx-auto mb-4">
-          CS
+    <div className="min-h-screen flex flex-col bg-canvas text-charcoal font-sans">
+      {/* Toast Notification Banner */}
+      {notification && (
+        <div className="fixed left-1/2 bottom-7 -translate-x-1/2 z-50 bg-[#7A3E00] text-white rounded-xl px-5 py-3.5 text-[15px] font-medium flex items-center gap-4 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+          <span>{notification.message}</span>
+          <button
+            onClick={() => setNotification(null)}
+            className="h-8.5 px-3.5 border border-[#F5D9B8] rounded-lg bg-transparent text-white font-semibold text-[13px] hover:bg-white/10 transition-colors"
+          >
+            Dismiss
+          </button>
         </div>
-        <h2 className="text-xl font-bold text-charcoal mb-2">Access Restricted</h2>
-        <p className="text-sm text-muted mb-6">This dashboard is available to administrators only.</p>
-        <button
-          onClick={handleLogout}
-          className="h-10 px-5 rounded-lg bg-charcoal hover:bg-neutral-800 text-white text-sm font-semibold transition-colors"
-        >
-          Sign out
-        </button>
-      </div>
+      )}
+
+      {/* Navbar */}
+      <Navbar
+        currentUser={currentUser}
+        onOpenCreateTeam={() => {
+          if (!currentUser) setIsAuthOpen(true);
+          else setIsCreateOpen(true);
+        }}
+        onOpenJoinCode={() => {
+          if (!currentUser) setIsAuthOpen(true);
+          else setIsJoinCodeOpen(true);
+        }}
+        onToggleLab={() => setActiveTab(activeTab === 'lab' ? 'board' : 'lab')}
+        onOpenHelp={() => setIsHelpOpen(true)}
+        onLogout={handleLogout}
+        activeTab={activeTab}
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'my-team' && userMembership) {
+            setSelectedTeamId(userMembership.team_id);
+          } else if (tab === 'board') {
+            setSelectedTeamId(null);
+          }
+        }}
+        hasTeam={!!userMembership}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        isAdmin={currentUser?.role === 'admin'}
+        onOpenAdmin={() => setView('admin')}
+      />
+
+      {/* Main Content */}
+      <main className="flex-1 w-full">
+        {activeTab === 'lab' ? (
+          <div className="max-w-7xl mx-auto py-8 px-4 sm:px-8">
+            <ConcurrencyLab hackathonId={activeHackathonId} />
+          </div>
+        ) : activeTab === 'suggestions' ? (
+          <div className="max-w-7xl mx-auto py-8 px-4 sm:px-8">
+            <TeammateSuggestions teamId={userMembership?.team_id} />
+          </div>
+        ) : selectedTeamId && selectedTeamData ? (
+          <TeamDetail
+            team={selectedTeamData}
+            currentUser={currentUser}
+            onBack={() => {
+              setSelectedTeamId(null);
+              setActiveTab('board');
+            }}
+            onRefresh={fetchSelectedTeam}
+            onLeaveTeam={handleLeaveTeam}
+          />
+        ) : (
+          <LiveBoard
+            teams={teams}
+            isLoading={isLoadingTeams}
+            search={search}
+            setSearch={setSearch}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            selectedSkill={selectedSkill}
+            setSelectedSkill={setSelectedSkill}
+            onSelectTeam={(teamId) => setSelectedTeamId(teamId)}
+            onRequestJoin={(team) => {
+              if (!currentUser) return setIsAuthOpen(true);
+              setTargetRequestTeam(team);
+              setIsRequestOpen(true);
+            }}
+            onOpenCreateTeam={() => {
+              if (!currentUser) setIsAuthOpen(true);
+              else setIsCreateOpen(true);
+            }}
+            onOpenJoinCode={() => {
+              if (!currentUser) setIsAuthOpen(true);
+              else setIsJoinCodeOpen(true);
+            }}
+            hasMore={hasMore}
+            onLoadMore={() => fetchTeams(false)}
+            currentUserId={currentUser?.id}
+            userTeamId={userMembership?.team_id}
+            onOpenAuth={() => setIsAuthOpen(true)}
+          />
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-cardBorder py-6 text-center text-xs text-muted mt-auto">
+        <div>
+          CyberSwaRaksha · Built with <span className="text-teal-dark font-semibold">Fastify</span> + <span className="text-teal-dark font-semibold">PostgreSQL 17 READ COMMITTED</span> + <span className="text-teal-dark font-semibold">React 18</span>
+        </div>
+        <div className="mt-1 text-[11px] text-muted">
+          Press <kbd className="px-1.5 py-0.5 bg-white border border-borderMuted rounded font-mono text-charcoal">?</kbd> for keyboard shortcuts · Press <kbd className="px-1.5 py-0.5 bg-white border border-borderMuted rounded font-mono text-charcoal">/</kbd> to search
+        </div>
+      </footer>
+
+      {/* Modals */}
+      <CreateTeamModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        hackathonId={activeHackathonId}
+        onSuccess={(newTeam) => {
+          showToast(`Team "${newTeam.name}" created!`, 'success');
+          loadUserAndHackathons();
+          setSelectedTeamId(newTeam.id);
+        }}
+      />
+
+      <JoinCodeModal
+        isOpen={isJoinCodeOpen}
+        onClose={() => setIsJoinCodeOpen(false)}
+        onSuccess={(res) => {
+          showToast(`Seat claimed on ${res.teamName}!`, 'success');
+          loadUserAndHackathons();
+          setSelectedTeamId(res.teamId);
+        }}
+      />
+
+      <RequestJoinModal
+        isOpen={isRequestOpen}
+        onClose={() => {
+          setIsRequestOpen(false);
+          setTargetRequestTeam(null);
+        }}
+        team={targetRequestTeam}
+        onSuccess={() => {
+          showToast('Join request submitted to team leader.', 'info');
+        }}
+      />
+
+      <KeyboardHelpModal
+        isOpen={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+      />
+
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setView(user.role === 'admin' ? 'admin' : 'app');
+          loadUserAndHackathons();
+          showToast(`Signed in as ${user.name}`, 'success');
+        }}
+      />
     </div>
   );
 }

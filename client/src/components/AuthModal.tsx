@@ -84,8 +84,8 @@ export function AuthModal({
         <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
           <div className="max-w-[360px] mx-auto w-full flex flex-col gap-6">
             <div>
-              <h2 className="text-2xl font-bold text-charcoal">Judge Sign In</h2>
-              <p className="text-sm text-muted mt-1">Choose an admin or participant demo account.</p>
+              <h2 className="text-2xl font-bold text-charcoal">Sign in</h2>
+              <p className="text-sm text-muted mt-1">Use an admin or participant demo account.</p>
             </div>
 
             {error && (
@@ -104,7 +104,7 @@ export function AuthModal({
                   autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="user40000"
+                  placeholder="user00001"
                   className="h-12 px-4 border border-cardBorder rounded-xl bg-canvas text-charcoal text-[15px] focus:outline-none focus:border-charcoal focus:ring-1 focus:ring-charcoal/10 placeholder:text-subtle"
                 />
               </div>
@@ -148,7 +148,7 @@ export function AuthModal({
               </div>
               <div className="font-mono text-xs text-charcoal mt-2 space-y-1">
                 <p>Admin: <span className="font-semibold">adminbro</span> / <span className="font-semibold">DemoAdmin#2026</span></p>
-                <p>Usernames: <span className="font-semibold">user40000 through user40010</span></p>
+                <p>Users: <span className="font-semibold">user00001 through user00010</span></p>
                 <p>Participant password: <span className="font-semibold">Demo@12345</span></p>
               </div>
             </div>

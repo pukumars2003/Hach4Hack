@@ -93,3 +93,22 @@ export interface Suggestion {
   };
 }
 
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  username?: string | null;
+  role: string;
+  created_at: string;
+  team_id?: string | null;
+  team_name?: string | null;
+  team_role?: string | null;
+}
+
+export interface AdminStats {
+  total_users: number;
+  admin_users: number;
+  users_with_teams: number;
+  total_teams: number;
+}
+
