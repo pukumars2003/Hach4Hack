@@ -97,14 +97,14 @@ export function AuthModal({
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-semibold text-charcoal">Username</label>
+                <label className="text-[13px] font-semibold text-charcoal">Username or email</label>
                 <input
                   type="text"
                   required
                   autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="user00001"
+                  placeholder="user00001 or user00001@demo.test"
                   className="h-12 px-4 border border-cardBorder rounded-xl bg-canvas text-charcoal text-[15px] focus:outline-none focus:border-charcoal focus:ring-1 focus:ring-charcoal/10 placeholder:text-subtle"
                 />
               </div>
@@ -148,7 +148,7 @@ export function AuthModal({
               </div>
               <div className="font-mono text-xs text-charcoal mt-2 space-y-1">
                 <p>Admin: <span className="font-semibold">adminbro</span> / <span className="font-semibold">DemoAdmin#2026</span></p>
-                <p>Users: <span className="font-semibold">user00001 through user00010</span></p>
+                <p>Demo users: <span className="font-semibold">user00001 through user50000</span></p>
                 <p>Participant password: <span className="font-semibold">Demo@12345</span></p>
               </div>
             </div>

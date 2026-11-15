@@ -18,8 +18,8 @@ const INTEREST_POOL = [
 const TZ_OFFSETS = [-480, -300, 0, 60, 120, 330, 480, 540];
 
 export async function seedDatabase(options: { userCount?: number; teamCount?: number } = {}) {
-  const userCount = options.userCount || parseInt(process.env.SEED_USERS || '10000', 10);
-  const teamCount = options.teamCount || parseInt(process.env.SEED_TEAMS || '2000', 10);
+  const userCount = options.userCount || parseInt(process.env.SEED_USERS || '50000', 10);
+  const teamCount = options.teamCount || parseInt(process.env.SEED_TEAMS || '10000', 10);
 
   const pool = new Pool({ connectionString: config.database.connectionString });
   console.log(`[Seed] Starting seed: ${userCount} users, ${teamCount} teams...`);

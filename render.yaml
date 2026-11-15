@@ -24,6 +24,12 @@ services:
         value: "DemoAdmin#2026"
       - key: PG_POOL_MAX
         value: "20"
+      - key: SEED_DEMO_DATA
+        value: "true"
+      - key: SEED_USERS
+        value: "50000"
+      - key: SEED_TEAMS
+        value: "10000"
 
 databases:
   - name: raceproof-db

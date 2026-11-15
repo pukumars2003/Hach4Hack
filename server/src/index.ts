@@ -7,6 +7,7 @@ import rateLimit from '@fastify/rate-limit';
 import { config } from './config.js';
 import { pool, query } from './db/pool.js';
 import { runMigrations } from './db/migrate.js';
+import { seedDatabase } from './db/seed.js';
 import { realtimeHub } from './realtime/sse.js';
 import { authRoutes } from './routes/auth.js';
 import { hackathonRoutes } from './routes/hackathons.js';
@@ -222,8 +223,9 @@ export async function buildApp() {
 export async function startServer() {
   try {
     await runMigrations();
+    await seedDemoDataIfNeeded();
   } catch (err) {
-    console.error('[Startup] Database migrations failed; refusing to start:', err);
+    console.error('[Startup] Database initialization failed; refusing to start:', err);
     process.exit(1);
   }
 
@@ -252,6 +254,30 @@ export async function startServer() {
 
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+}
+
+async function seedDemoDataIfNeeded() {
+  if (!/^(1|true|yes)$/i.test(process.env.SEED_DEMO_DATA || '')) return;
+
+  const userCount = Number.parseInt(process.env.SEED_USERS || '50000', 10);
+  const teamCount = Number.parseInt(process.env.SEED_TEAMS || '10000', 10);
+  if (!Number.isSafeInteger(userCount) || userCount < 1 || !Number.isSafeInteger(teamCount) || teamCount < 1) {
+    throw new Error('SEED_USERS and SEED_TEAMS must be positive integers');
+  }
+
+  const result = await query(
+    `SELECT
+       (SELECT count(*)::int FROM users WHERE email ~ '^user[0-9]+@demo[.]test$') AS users,
+       (SELECT count(*)::int FROM teams WHERE name ~ '^Team Alpha-[0-9]+$') AS teams`
+  );
+  const existing = result.rows[0];
+  if (existing.users >= userCount && existing.teams >= teamCount) {
+    console.log(`[Seed] Demo data already present (${existing.users} users, ${existing.teams} teams).`);
+    return;
+  }
+
+  console.log('[Seed] Demo data is missing or incomplete; seeding configured dataset...');
+  await seedDatabase({ userCount, teamCount });
 }
 
 if (process.argv[1].endsWith('index.ts') || process.argv[1].endsWith('index.js')) {

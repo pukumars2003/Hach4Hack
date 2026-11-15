@@ -16,7 +16,7 @@ import { api } from '../api/client.js';
 import { AdminUser, AdminStats } from '../types.js';
 import { ConcurrencyLab } from './ConcurrencyLab.js';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 200;
 
 export function AdminDashboard({ onExit, onLogout }: { onExit: () => void; onLogout: () => void }) {
   const [tab, setTab] = useState<'users' | 'lab' | 'audit'>('users');
@@ -25,6 +25,7 @@ export function AdminDashboard({ onExit, onLogout }: { onExit: () => void; onLog
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [offset, setOffset] = useState(0);
 
@@ -35,6 +36,7 @@ export function AdminDashboard({ onExit, onLogout }: { onExit: () => void; onLog
 
   const loadUsers = useCallback(async (searchTerm: string, pageOffset: number) => {
     setIsLoadingUsers(true);
+    setUsersError(null);
     try {
       const res = await api.getAdminUsers({ search: searchTerm, limit: PAGE_SIZE, offset: pageOffset });
       setUsers(res.users);
@@ -44,6 +46,7 @@ export function AdminDashboard({ onExit, onLogout }: { onExit: () => void; onLog
       console.error(err);
       setUsers([]);
       setTotal(0);
+      setUsersError(err instanceof Error ? err.message : 'Unable to load the user directory.');
     } finally {
       setIsLoadingUsers(false);
     }
@@ -237,6 +240,16 @@ export function AdminDashboard({ onExit, onLogout }: { onExit: () => void; onLog
               <div className="py-16 text-center">
                 <div className="w-6 h-6 border-2 border-cardBorder border-t-charcoal rounded-full animate-spin mx-auto mb-3" />
                 <p className="text-sm text-muted">Loading users...</p>
+              </div>
+            ) : usersError ? (
+              <div role="alert" className="py-16 px-5 text-center">
+                <p className="text-sm text-danger">{usersError}</p>
+                <button
+                  onClick={() => loadUsers(search, offset)}
+                  className="mt-4 h-9 px-4 rounded-lg bg-charcoal text-white text-sm font-medium hover:bg-neutral-800"
+                >
+                  Retry
+                </button>
               </div>
             ) : users.length === 0 ? (
               <div className="py-16 text-center">

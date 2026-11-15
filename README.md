@@ -66,7 +66,7 @@ Browser ──> Render (React + Fastify API + SSE, Docker) ──> Render Postgr
    The client and API share the same
    origin, so no client API URL or CORS configuration is needed. The server runs database migrations on
    startup and provisions the public demo admin `adminbro` / `DemoAdmin#2026`. Judges can also use the
-   seeded participant accounts `user00001` through `user00010`, all with password `Demo@12345`.
+   seeded participant accounts `user00001` through `user50000`, all with password `Demo@12345`.
    These credentials are intentionally public for judging and must not be reused for a private or
    production admin account.
 

@@ -57,16 +57,16 @@ npm run db:migrate --workspace=server
 ```
 *Creates `users`, `hackathons`, `teams`, `team_members`, `invite_codes`, `join_requests`, `audit_logs`, and `idempotency_keys`.*
 
-### Step 3.2: Seed 10,000 Users and 2,000 Teams
+### Step 3.2: Seed 50,000 Users and 10,000 Teams
 Populate the database with the official hackathon dataset:
 ```powershell
 npm run db:seed --workspace=server
 ```
 **Verification:**
 The script seeds:
-- **10,335 Users** across global timezones with varied skills (React, Node, Postgres, Rust, UI/UX, Python)
-- **2,012 Teams** with statuses: `forming`, `ready`, and `full`
-- **Demo Accounts:** `user00001@demo.test` through `user00010@demo.test` with password `Demo@12345`
+- **50,000 Users** across global timezones with varied skills (React, Node, Postgres, Rust, UI/UX, Python)
+- **10,000 Teams** with statuses: `forming`, `ready`, and `full`
+- **Demo Accounts:** `user00001@demo.test` through `user50000@demo.test` with password `Demo@12345`
 
 ---
 
@@ -307,7 +307,7 @@ docker compose up --build
 - Run `npm run db:migrate --workspace=server` to ensure the tables are up to date.
 
 #### Q: What are the demo credentials?
-- **Email:** `user00001@demo.test` (through `user00010@demo.test`)
+- **Email:** `user00001@demo.test` (through `user50000@demo.test`)
 - **Password:** `Demo@12345`
 
 #### Q: How do I know the race test is not using dummy data?
